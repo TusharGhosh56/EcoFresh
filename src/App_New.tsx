@@ -5,7 +5,6 @@ import Dashboard from './components/Dashboard'
 import Analytics from './components/Analytics'
 import News from './components/News'
 import About from './components/About'
-import SplashScreen from './components/SplashScreen'
 
 function App() {
   const [currentView, setCurrentView] = useState<'main' | 'dashboard' | 'analytics' | 'news' | 'about'>('main')
@@ -60,7 +59,6 @@ function App() {
             }}
             className="fixed inset-0 z-[10000]"
           >
-            <SplashScreen onComplete={handleSplashComplete} />
           </motion.div>
         ) : (
           <motion.div

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>Testing OpenWeatherMap API</h1>
+    <button onclick="testAPI()">Test API</button>
+    <div id="result"></div>
+    
+    <script>
+        async function testAPI() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                // Test OpenWeatherMap geocoding API
+                const geoResponse = await fetch('https://api.openweathermap.org/geo/1.0/direct?q=New York&limit=1&appid=741081f2196356e85d5138db13c2f41c');
+                console.log('Geo response:', geoResponse);
+                
+                if (!geoResponse.ok) {
+                    throw new Error(`Geo API error: ${geoResponse.status}`);
+                }
+                
+                const geoData = await geoResponse.json();
+                console.log('Geo data:', geoData);
+                
+                if (geoData.length > 0) {
+                    const { lat, lon } = geoData[0];
+                    
+                    // Test air pollution API
+                    const pollutionResponse = await fetch(`https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=741081f2196356e85d5138db13c2f41c`);
+                    console.log('Pollution response:', pollutionResponse);
+                    
+                    if (!pollutionResponse.ok) {
+                        throw new Error(`Pollution API error: ${pollutionResponse.status}`);
+                    }
+                    
+                    const pollutionData = await pollutionResponse.json();
+                    console.log('Pollution data:', pollutionData);
+                    
+                    resultDiv.innerHTML = `
+                        <h3>Success!</h3>
+                        <p>Coordinates: ${lat}, ${lon}</p>
+                        <p>AQI: ${pollutionData.list[0].main.aqi}</p>
+                        <p>PM2.5: ${pollutionData.list[0].components.pm2_5}</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML = 'No coordinates found for New York';
+                }
+                
+            } catch (error) {
+                console.error('API test error:', error);
+                resultDiv.innerHTML = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

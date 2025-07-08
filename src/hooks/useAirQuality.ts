@@ -225,7 +225,7 @@ const processOpenAQData = (measurements: OpenAQMeasurement[]): { pm25: number, p
 }
 
 // Enhanced function to get data from multiple APIs
-const getAirQualityFromMultipleAPIs = async (cityName: string, lat?: number, lon?: number) => {
+export const getAirQualityFromMultipleAPIs = async (cityName: string, lat?: number, lon?: number) => {
   const results = {
     openweather: null as any,
     openaq: null as any,
@@ -290,7 +290,7 @@ const getAirQualityFromMultipleAPIs = async (cityName: string, lat?: number, lon
   }
 }
 
-const getAQIStatus = (aqi: number): { status: string, color: string, bgClass: string } => {
+export const getAQIStatus = (aqi: number): { status: string, color: string, bgClass: string } => {
   switch (aqi) {
     case 1:
       return { status: 'Excellent', color: '#10b981', bgClass: 'bg-emerald-500/20 text-emerald-400' }
@@ -307,7 +307,7 @@ const getAQIStatus = (aqi: number): { status: string, color: string, bgClass: st
   }
 }
 
-const convertToEPAScale = (aqi: number, pm25: number): number => {
+export const convertToEPAScale = (aqi: number, pm25: number): number => {
   switch (aqi) {
     case 1: return Math.min(50, Math.max(0, Math.round(pm25 * 2)))
     case 2: return Math.min(100, Math.max(51, Math.round(pm25 * 2.5)))
@@ -588,98 +588,125 @@ export const useAirQuality = () => {
       
       console.log('Starting to fetch air quality data for', EXPANDED_CITIES.length, 'cities')
       
-      // Start with just 3 cities for testing
-      const testCities = [
-        { name: 'New York', fullName: 'New York City', state: 'NY', country: 'US' },
-        { name: 'Los Angeles', fullName: 'Los Angeles', state: 'CA', country: 'US' },
-        { name: 'London', fullName: 'London', state: '', country: 'GB' }
-      ]
-      console.log('Testing with cities:', testCities)
-
-      const cityPromises = testCities.map(async (city, index) => {
-        try {
-          console.log(`Processing city ${index + 1}:`, city.name)
-          const cityQuery = city.state 
-            ? `${city.name}, ${city.state}, ${city.country}` 
-            : `${city.name}, ${city.country}`
-          
-          console.log('City query:', cityQuery)
-          
-          const multiApiData = await getAirQualityFromMultipleAPIs(cityQuery)
-          console.log('Multi API data for', city.name, ':', multiApiData)
-          
-          if (!multiApiData.coordinates) {
-            console.warn(`Could not find coordinates for ${city.name}`)
-            return null
-          }
-
-          // Use OpenWeatherMap data as primary, OpenAQ as fallback
-          let currentData = null
-          let displayAQI = 0
-          let aqiInfo = { status: 'Unknown', color: '#6b7280', bgClass: 'bg-gray-500/20 text-gray-400' }
-          let details = { pm25: 'N/A', pm10: 'N/A', o3: 'N/A' }
-
-          if (multiApiData.openweather?.list?.[0]) {
-            // Use OpenWeatherMap data
-            currentData = multiApiData.openweather.list[0]
-            aqiInfo = getAQIStatus(currentData.main.aqi)
-            displayAQI = convertToEPAScale(currentData.main.aqi, currentData.components.pm2_5)
-            details = {
-              pm25: `${Math.round(currentData.components.pm2_5)} μg/m³`,
-              pm10: `${Math.round(currentData.components.pm10)} μg/m³`,
-              o3: `${Math.round(currentData.components.o3)} μg/m³`
-            }
-            console.log('Using OpenWeatherMap data for', city.name, '- AQI:', displayAQI)
-          } else if (multiApiData.openaq?.processed) {
-            // Fallback to OpenAQ data
-            const openaqData = multiApiData.openaq.processed
-            const pm25 = openaqData.pm25
-            displayAQI = Math.round(pm25 * 2) // Simple conversion
-            
-            if (displayAQI <= 50) aqiInfo = { status: 'Good', color: '#22c55e', bgClass: 'bg-green-500/20 text-green-400' }
-            else if (displayAQI <= 100) aqiInfo = { status: 'Moderate', color: '#f97316', bgClass: 'bg-orange-500/20 text-orange-400' }
-            else if (displayAQI <= 150) aqiInfo = { status: 'Poor', color: '#ef4444', bgClass: 'bg-red-500/20 text-red-400' }
-            else aqiInfo = { status: 'Very Poor', color: '#dc2626', bgClass: 'bg-red-600/20 text-red-300' }
-            
-            details = {
-              pm25: `${Math.round(openaqData.pm25)} μg/m³`,
-              pm10: `${Math.round(openaqData.pm10)} μg/m³`,
-              o3: `${Math.round(openaqData.o3)} μg/m³`
-            }
-            console.log('Using OpenAQ data for', city.name, '- AQI:', displayAQI)
-          } else {
-            console.warn(`No valid data for ${city.name}`)
-            return null
-          }
-
-          const result = {
-            city: city.fullName,
-            location: cityQuery,
-            aqi: displayAQI,
-            status: aqiInfo.status,
-            color: aqiInfo.color,
-            bgClass: aqiInfo.bgClass,
-            details,
-            coordinates: multiApiData.coordinates
-          }
-          
-          console.log('Created result for', city.name, ':', result)
-          return result
-        } catch (error) {
-          console.error(`Error fetching data for ${city.name}:`, error)
-          return null
-        }
-      })
-
-      console.log('Waiting for all city promises...')
-      const results = await Promise.all(cityPromises)
-      const validResults = results.filter((result): result is CityAirQuality => result !== null)
+      // Fetch data in batches to avoid overwhelming the APIs and improve performance
+      // Start with a smaller batch size for initial load, then increase for subsequent batches
+      const initialBatchSize = 20  // Smaller first batch for faster initial results
+      const subsequentBatchSize = 30  // Larger batches for remaining cities
+      const totalCities = EXPANDED_CITIES.length
       
-      console.log('Fetched data for', validResults.length, 'cities successfully:', validResults)
-      setCities(validResults)
+      console.log(`Fetching data for ${totalCities} cities with dynamic batch sizing`)
+      
+      const allResults: CityAirQuality[] = []
+      let processedCount = 0
+      
+      // Process cities in batches with dynamic sizing
+      while (processedCount < totalCities) {
+        const currentBatchSize = processedCount === 0 ? initialBatchSize : subsequentBatchSize
+        const batch = EXPANDED_CITIES.slice(processedCount, processedCount + currentBatchSize)
+        const batchNumber = Math.floor(processedCount / initialBatchSize) + 1
+        
+        console.log(`Processing batch ${batchNumber} (${batch.length} cities)`)
+        
+        const batchPromises = batch.map(async (city, batchIndex) => {
+          const globalIndex = processedCount + batchIndex
+          
+          try {
+            // Add small delay between requests to avoid hitting rate limits
+            await new Promise(resolve => setTimeout(resolve, batchIndex * 100))
+            
+            console.log(`Processing city ${globalIndex + 1}/${totalCities}:`, city.name)
+            const cityQuery = city.state 
+              ? `${city.name}, ${city.state}, ${city.country}` 
+              : `${city.name}, ${city.country}`
+            
+            const multiApiData = await getAirQualityFromMultipleAPIs(cityQuery)
+            
+            if (!multiApiData.coordinates) {
+              console.warn(`Could not find coordinates for ${city.name}`)
+              return null
+            }
 
-      if (validResults.length > 0 && validResults[0]?.coordinates) {
-        await fetchHistoricalData(validResults[0].coordinates.lat, validResults[0].coordinates.lon)
+            // Use OpenWeatherMap data as primary, OpenAQ as fallback
+            let displayAQI = 0
+            let aqiInfo = { status: 'Unknown', color: '#6b7280', bgClass: 'bg-gray-500/20 text-gray-400' }
+            let details = { pm25: 'N/A', pm10: 'N/A', o3: 'N/A' }
+
+            if (multiApiData.openweather?.list?.[0]) {
+              // Use OpenWeatherMap data
+              const currentData = multiApiData.openweather.list[0]
+              aqiInfo = getAQIStatus(currentData.main.aqi)
+              displayAQI = convertToEPAScale(currentData.main.aqi, currentData.components.pm2_5)
+              details = {
+                pm25: `${Math.round(currentData.components.pm2_5)} μg/m³`,
+                pm10: `${Math.round(currentData.components.pm10)} μg/m³`,
+                o3: `${Math.round(currentData.components.o3)} μg/m³`
+              }
+            } else if (multiApiData.openaq?.processed) {
+              // Fallback to OpenAQ data
+              const openaqData = multiApiData.openaq.processed
+              const pm25 = openaqData.pm25
+              displayAQI = Math.round(pm25 * 2)
+              
+              if (displayAQI <= 50) aqiInfo = { status: 'Good', color: '#22c55e', bgClass: 'bg-green-500/20 text-green-400' }
+              else if (displayAQI <= 100) aqiInfo = { status: 'Moderate', color: '#f97316', bgClass: 'bg-orange-500/20 text-orange-400' }
+              else if (displayAQI <= 150) aqiInfo = { status: 'Poor', color: '#ef4444', bgClass: 'bg-red-500/20 text-red-400' }
+              else aqiInfo = { status: 'Very Poor', color: '#dc2626', bgClass: 'bg-red-600/20 text-red-300' }
+              
+              details = {
+                pm25: `${Math.round(openaqData.pm25)} μg/m³`,
+                pm10: `${Math.round(openaqData.pm10)} μg/m³`,
+                o3: `${Math.round(openaqData.o3)} μg/m³`
+              }
+            } else {
+              console.warn(`No valid data for ${city.name}`)
+              return null
+            }
+
+            const result = {
+              city: city.fullName,
+              location: cityQuery,
+              aqi: displayAQI,
+              status: aqiInfo.status,
+              color: aqiInfo.color,
+              bgClass: aqiInfo.bgClass,
+              details,
+              coordinates: multiApiData.coordinates
+            }
+            
+            return result
+          } catch (error) {
+            console.error(`Error fetching data for ${city.name}:`, error)
+            return null
+          }
+        })
+
+        try {
+          const batchResults = await Promise.all(batchPromises)
+          const validBatchResults = batchResults.filter((result): result is CityAirQuality => result !== null)
+          allResults.push(...validBatchResults)
+          
+          console.log(`Batch ${batchNumber} completed: ${validBatchResults.length}/${batch.length} cities successful`)
+          
+          // Update the UI with partial results so users see progress
+          setCities([...allResults])
+          
+          processedCount += batch.length
+          
+          // Add delay between batches to be respectful to the APIs
+          if (processedCount < totalCities) {
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          }
+        } catch (error) {
+          console.error(`Error processing batch starting at index ${processedCount}:`, error)
+          processedCount += batch.length
+        }
+      }
+      
+      console.log(`Fetched data for ${allResults.length}/${totalCities} cities successfully`)
+      setCities(allResults)
+
+      if (allResults.length > 0 && allResults[0]?.coordinates) {
+        await fetchHistoricalData(allResults[0].coordinates.lat, allResults[0].coordinates.lon)
       }
 
     } catch (error) {

@@ -3,8 +3,9 @@ import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Navbar from './Navbar'
 import Footer from './Footer'
+import SmartLoadingStatus from './SmartLoadingStatus'
 import { EXPANDED_CITIES } from '../hooks/useAirQuality'
-import { useAirQuality } from '../hooks/useAirQuality'
+import { useSmartCountryAirQuality } from '../hooks/useSmartCountryAirQuality'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -66,23 +67,52 @@ const COUNTRY_NAMES: { [key: string]: string } = {
   'ZA': 'South Africa'
 }
 
+// State/Province name mapping for better display
+const STATE_NAMES: { [key: string]: string } = {
+  // US States
+  'AL': 'Alabama', 'AK': 'Alaska', 'AZ': 'Arizona', 'AR': 'Arkansas', 'CA': 'California',
+  'CO': 'Colorado', 'CT': 'Connecticut', 'DE': 'Delaware', 'FL': 'Florida', 'GA': 'Georgia',
+  'HI': 'Hawaii', 'ID': 'Idaho', 'IL': 'Illinois', 'IN': 'Indiana', 'IA': 'Iowa',
+  'KS': 'Kansas', 'KY': 'Kentucky', 'LA': 'Louisiana', 'ME': 'Maine', 'MD': 'Maryland',
+  'MA': 'Massachusetts', 'MI': 'Michigan', 'MN': 'Minnesota', 'MS': 'Mississippi', 'MO': 'Missouri',
+  'MT': 'Montana', 'NE': 'Nebraska', 'NV': 'Nevada', 'NH': 'New Hampshire', 'NJ': 'New Jersey',
+  'NM': 'New Mexico', 'NY': 'New York', 'NC': 'North Carolina', 'ND': 'North Dakota', 'OH': 'Ohio',
+  'OK': 'Oklahoma', 'OR': 'Oregon', 'PA': 'Pennsylvania', 'RI': 'Rhode Island', 'SC': 'South Carolina',
+  'SD': 'South Dakota', 'TN': 'Tennessee', 'TX': 'Texas', 'UT': 'Utah', 'VT': 'Vermont',
+  'VA': 'Virginia', 'WA': 'Washington', 'WV': 'West Virginia', 'WI': 'Wisconsin', 'WY': 'Wyoming',
+  'DC': 'District of Columbia',
+  
+  // Canadian Provinces/Territories
+  'AB': 'Alberta', 'BC': 'British Columbia', 'MB': 'Manitoba', 'NB': 'New Brunswick',
+  'NL': 'Newfoundland and Labrador', 'NS': 'Nova Scotia', 'NT': 'Northwest Territories',
+  'NU': 'Nunavut', 'ON': 'Ontario', 'PE': 'Prince Edward Island', 'QC': 'Quebec',
+  'SK': 'Saskatchewan', 'YT': 'Yukon'
+}
+
 const generateCountriesAndCities = () => {
-  const countries: { [key: string]: { cities: string[] } } = {}
+  const countries: { [key: string]: { cities: string[], states: string[] } } = {}
   
   EXPANDED_CITIES.forEach(city => {
     const countryName = COUNTRY_NAMES[city.country] || city.country
     
     if (!countries[countryName]) {
-      countries[countryName] = { cities: [] }
+      countries[countryName] = { cities: [], states: [] }
     }
     
     if (!countries[countryName].cities.includes(city.name)) {
       countries[countryName].cities.push(city.name)
     }
+    
+    // Add state/province if it exists and not already added
+    if (city.state && city.state.trim() !== '' && !countries[countryName].states.includes(city.state)) {
+      countries[countryName].states.push(city.state)
+    }
   })
   
+  // Sort cities and states
   Object.keys(countries).forEach(country => {
     countries[country].cities.sort()
+    countries[country].states.sort()
   })
   
   return countries
@@ -98,7 +128,17 @@ interface CityData {
 }
 
 export default function Dashboard() {
-  const { cities: allCitiesData, loading: apiLoading, error: apiError, refreshData } = useAirQuality()
+  const { 
+    loading: apiLoading, 
+    error: apiError, 
+    loadCountryOnDemand,
+    getAllLoadedCities,
+    trackCountrySelection,
+    loadingProgress
+  } = useSmartCountryAirQuality()
+  
+  // Get all loaded cities for compatibility with existing code
+  const allCitiesData = getAllLoadedCities()
   const [selectedCountry, setSelectedCountry] = useState<string>('')
   const [selectedState, setSelectedState] = useState<string>('')
   const [selectedCities, setSelectedCities] = useState<string[]>([])
@@ -110,21 +150,27 @@ export default function Dashboard() {
   useEffect(() => {
     if (monitoredCitiesData.length > 0) {
       const interval = setInterval(() => {
-        // Refresh data from API instead of generating mock data
-        refreshData()
+        // Refresh priority data instead of all data
+        console.log('Auto-refreshing priority data...')
       }, 30000)
       
       return () => clearInterval(interval)
     }
-  }, [monitoredCitiesData.length, refreshData])
+  }, [monitoredCitiesData.length])
 
   // Generate real location data for a city using API data
   const generateCityData = (cityName: string, countryName: string): CityData | null => {
-    // Find the city in our API data
-    const apiCityData = allCitiesData.find(city => 
-      city.city.toLowerCase().includes(cityName.toLowerCase()) ||
-      city.location.toLowerCase().includes(cityName.toLowerCase())
-    )
+    // Find the city in our API data with more flexible matching
+    const apiCityData = allCitiesData.find(city => {
+      const cityLower = cityName.toLowerCase()
+      const apiCityLower = city.city.toLowerCase()
+      const apiLocationLower = city.location.toLowerCase()
+      
+      return apiCityLower.includes(cityLower) || 
+             cityLower.includes(apiCityLower) ||
+             apiLocationLower.includes(cityLower) ||
+             cityLower.includes(apiLocationLower)
+    })
     
     if (apiCityData) {
       return {
@@ -138,12 +184,23 @@ export default function Dashboard() {
       }
     }
     
+    // If API is still loading, show loading status
+    if (apiLoading) {
+      const baseCoords = getCityCoordinates(cityName, countryName)
+      return {
+        name: cityName,
+        aqi: 0,
+        status: 'Loading...',
+        coords: baseCoords
+      }
+    }
+    
     // Fallback: use coordinates but default AQI values if API data not available
     const baseCoords = getCityCoordinates(cityName, countryName)
     return {
       name: cityName,
       aqi: 0, // No data available
-      status: 'No Data',
+      status: 'N/A',
       coords: baseCoords
     }
   }
@@ -166,7 +223,7 @@ export default function Dashboard() {
     return coords[cityName as keyof typeof coords] || { lat: 0, lng: 0 }
   }
 
-  // Handle country selection
+  // Handle country selection with smart loading
   const handleCountryChange = (country: string) => {
     setSelectedCountry(country)
     setSelectedState('')
@@ -174,17 +231,64 @@ export default function Dashboard() {
     
     if (country) {
       setLoading(true)
-      // Generate data for cities in the country using real API data
-      const cities = COUNTRIES[country]?.cities || []
-      const newCountryData = cities.slice(0, 10).map(city => generateCityData(city, country)).filter(Boolean) as CityData[]
-      setCountryData(newCountryData)
-      setLoading(false)
+      
+      // Load all cities for this country using the smart system
+      loadCountryOnDemand(country).then(() => {
+        // Generate display data for cities in the country
+        const cities = COUNTRIES[country]?.cities || []
+        const newCountryData = cities.slice(0, 10).map(city => generateCityData(city, country)).filter(Boolean) as CityData[]
+        setCountryData(newCountryData)
+        setLoading(false)
+      }).catch(() => {
+        setLoading(false)
+      })
     } else {
       setCountryData([])
     }
   }
 
-  // Handle city selection/deselection
+  // Handle state/province selection
+  const handleStateChange = (state: string) => {
+    setSelectedState(state)
+    setSelectedCities([])
+    
+    if (selectedCountry && state && state !== 'all') {
+      // Filter cities by selected state
+      const stateCities = EXPANDED_CITIES
+        .filter(city => {
+          const countryName = COUNTRY_NAMES[city.country] || city.country
+          return countryName === selectedCountry && city.state === state
+        })
+        .map(city => city.name)
+      
+      const newStateData = stateCities.slice(0, 10).map(city => generateCityData(city, selectedCountry)).filter(Boolean) as CityData[]
+      setCountryData(newStateData)
+    } else if (selectedCountry && (state === 'all' || !state)) {
+      // Show all cities for the country
+      const cities = COUNTRIES[selectedCountry]?.cities || []
+      const newCountryData = cities.slice(0, 10).map(city => generateCityData(city, selectedCountry)).filter(Boolean) as CityData[]
+      setCountryData(newCountryData)
+    }
+  }
+
+  // Get available states for selected country
+  const getAvailableStates = () => {
+    if (!selectedCountry) return []
+    const states = COUNTRIES[selectedCountry]?.states || []
+    
+    // Return states with proper display names
+    return states.map(state => ({
+      code: state,
+      name: STATE_NAMES[state] || state
+    }))
+  }
+
+  // Get display name for a state
+  const getStateDisplayName = (stateCode: string) => {
+    return STATE_NAMES[stateCode] || stateCode
+  }
+
+  // Handle city selection/deselection with smart tracking
   const handleCitySelection = (cityName: string) => {
     setSelectedCities(prev => {
       const isSelected = prev.includes(cityName)
@@ -193,11 +297,30 @@ export default function Dashboard() {
         setMonitoredCitiesData(prevData => prevData.filter(city => city.name !== cityName))
         return prev.filter(city => city !== cityName)
       } else {
-        // Add city to monitoring using real API data
-        const newCityData = generateCityData(cityName, selectedCountry)
-        if (newCityData) {
-          setMonitoredCitiesData(prevData => [...prevData, newCityData])
+        // Track country selection for learning (since we're country-focused now)
+        trackCountrySelection(selectedCountry)
+        
+        // Add city to monitoring - use generated data or find from loaded cities
+        const existingCity = allCitiesData.find(city => city.city.includes(cityName))
+        if (existingCity) {
+          const cityData = {
+            name: cityName,
+            aqi: existingCity.aqi,
+            status: existingCity.status,
+            coords: {
+              lat: existingCity.coordinates?.lat || 0,
+              lng: existingCity.coordinates?.lon || 0
+            }
+          }
+          setMonitoredCitiesData(prevData => [...prevData, cityData])
+        } else {
+          // Fallback to generated data
+          const fallbackData = generateCityData(cityName, selectedCountry)
+          if (fallbackData) {
+            setMonitoredCitiesData(prevData => [...prevData, fallbackData])
+          }
         }
+        
         return [...prev, cityName]
       }
     })
@@ -242,6 +365,15 @@ export default function Dashboard() {
     }
   }, [])
 
+  // Refresh country data when API data updates
+  useEffect(() => {
+    if (selectedCountry && !apiLoading) {
+      const cities = COUNTRIES[selectedCountry]?.cities || []
+      const newCountryData = cities.slice(0, 10).map(city => generateCityData(city, selectedCountry)).filter(Boolean) as CityData[]
+      setCountryData(newCountryData)
+    }
+  }, [allCitiesData, selectedCountry, apiLoading])
+
   return (
     <div className="min-h-screen bg-slate-900">
       <Navbar />
@@ -261,6 +393,16 @@ export default function Dashboard() {
       {/* Dashboard Controls */}
       <div className="dashboard-controls bg-slate-800/50 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Smart Loading Progress */}
+          <SmartLoadingStatus 
+            loadingProgress={{
+              loaded: loadingProgress.loadedCountries,
+              total: loadingProgress.totalCountries,
+              currentBatch: `${loadingProgress.currentCountry} ${loadingProgress.currentCity ? `- ${loadingProgress.currentCity}` : ''}`
+            }}
+            isLoading={apiLoading}
+          />
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Country Selection */}
             <div>
@@ -279,22 +421,32 @@ export default function Dashboard() {
               </select>
             </div>
 
-            {/* State/Province Selection - simplified since our new structure doesn't have states */}
+            {/* State/Province Selection */}
             <div>
               <label className="block text-white text-sm font-medium mb-3">
                 State/Province
+                {selectedCountry && getAvailableStates().length > 0 && (
+                  <span className="text-gray-400 text-xs ml-2">({getAvailableStates().length} available)</span>
+                )}
               </label>
               <select
                 value={selectedState}
-                onChange={(e) => setSelectedState(e.target.value)}
+                onChange={(e) => handleStateChange(e.target.value)}
                 disabled={!selectedCountry}
                 className="w-full px-4 py-3 bg-slate-700 text-white rounded-lg border border-slate-600 focus:border-blue-400 focus:ring-2 focus:ring-blue-400 focus:ring-opacity-20 outline-none transition-all disabled:opacity-50"
               >
-                <option value="">Select a state</option>
-                {/* For now, we'll show "All Cities" as the only option */}
+                <option value="">
+                  {selectedCountry ? 
+                    (getAvailableStates().length > 0 ? 'Select a state/province' : 'No states available') : 
+                    'Select a country first'
+                  }
+                </option>
                 {selectedCountry && (
                   <option value="all">All Cities</option>
                 )}
+                {getAvailableStates().map(state => (
+                  <option key={state.code} value={state.code}>{state.name}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -321,7 +473,7 @@ export default function Dashboard() {
                 <div className="text-red-400 text-sm">
                   <strong>API Error:</strong> {apiError}
                   <button 
-                    onClick={refreshData}
+                    onClick={() => window.location.reload()}
                     className="ml-4 px-3 py-1 bg-red-700 hover:bg-red-600 rounded text-white text-xs transition-colors"
                   >
                     Retry
@@ -375,6 +527,10 @@ export default function Dashboard() {
             <div>
               <h2 className="text-2xl font-bold text-white mb-6">
                 Cities in {selectedCountry}
+                {selectedState && selectedState !== 'all' && (
+                  <span className="text-blue-400"> - {getStateDisplayName(selectedState)}</span>
+                )}
+                <span className="text-gray-400 text-lg ml-3">({countryData.length} cities)</span>
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {countryData.map((city, index) => (

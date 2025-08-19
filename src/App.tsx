@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import AuthWrapper from './components/AuthWrapper'
+import { auth } from './services/firebase'
+import { onAuthStateChanged } from 'firebase/auth'
 
 import MainPage from './components/MainPageNew'
 import Dashboard from './components/Dashboard'
@@ -9,7 +11,7 @@ import News from './components/News'
 import About from './components/About'
 
 interface UserData {
-  id: number
+  id: string
   email: string
   firstName: string
   lastName: string
@@ -22,23 +24,56 @@ function App() {
 
   const [currentView, setCurrentView] = useState<'main' | 'dashboard' | 'analytics' | 'news' | 'about'>('main')
 
-  // Check for existing authentication on app load
+  // Check for existing authentication on app load using Firebase
   useEffect(() => {
-    const savedUser = localStorage.getItem('ecofresh_user')
-    const savedToken = localStorage.getItem('ecofresh_token')
-    
-    if (savedUser && savedToken) {
-      try {
-        const user = JSON.parse(savedUser)
-        setUserData(user)
-        setIsAuthenticated(true)
-
-      } catch {
-        // Invalid saved data, clear it
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is signed in
+        const savedUser = localStorage.getItem('ecofresh_user')
+        
+        if (savedUser) {
+          try {
+            const userData = JSON.parse(savedUser)
+            setUserData(userData)
+            setIsAuthenticated(true)
+          } catch {
+            // Invalid saved data, create new user data
+            const newUserData = {
+              id: user.uid,
+              email: user.email || '',
+              firstName: user.displayName?.split(' ')[0] || '',
+              lastName: user.displayName?.split(' ')[1] || '',
+              loginTime: new Date().toISOString()
+            }
+            
+            localStorage.setItem('ecofresh_user', JSON.stringify(newUserData))
+            setUserData(newUserData)
+            setIsAuthenticated(true)
+          }
+        } else {
+          // Create new user data
+          const newUserData = {
+            id: user.uid,
+            email: user.email || '',
+            firstName: user.displayName?.split(' ')[0] || '',
+            lastName: user.displayName?.split(' ')[1] || '',
+            loginTime: new Date().toISOString()
+          }
+          
+          localStorage.setItem('ecofresh_user', JSON.stringify(newUserData))
+          setUserData(newUserData)
+          setIsAuthenticated(true)
+        }
+      } else {
+        // User is signed out
         localStorage.removeItem('ecofresh_user')
-        localStorage.removeItem('ecofresh_token')
+        setUserData(null)
+        setIsAuthenticated(false)
       }
-    }
+    })
+    
+    // Cleanup subscription on unmount
+    return () => unsubscribe()
   }, [])
 
   // Handle successful authentication
@@ -50,12 +85,15 @@ function App() {
 
   // Handle logout
   const handleLogout = () => {
-    localStorage.removeItem('ecofresh_user')
-    localStorage.removeItem('ecofresh_token')
-    setUserData(null)
-    setIsAuthenticated(false)
-    setCurrentView('main')
-    window.location.hash = ''
+    auth.signOut().then(() => {
+      localStorage.removeItem('ecofresh_user')
+      setUserData(null)
+      setIsAuthenticated(false)
+      setCurrentView('main')
+      window.location.hash = ''
+    }).catch((error) => {
+      console.error('Error signing out:', error)
+    })
   }
 
 

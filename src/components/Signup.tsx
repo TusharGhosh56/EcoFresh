@@ -76,6 +76,7 @@ export default function Signup({ onSignup, onSwitchToLogin }: SignupProps) {
     setIsLoading(true)
 
     try {
+      console.log('Attempting to sign up with:', { ...formData, password: '***' })
       const success = await onSignup({
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -84,10 +85,12 @@ export default function Signup({ onSignup, onSwitchToLogin }: SignupProps) {
       })
       
       if (!success) {
-        setError('Account creation failed. Email might already be in use.')
+        setError('Account creation failed. Email might already be in use or Firestore database rules may be restricting access.')
+        console.log('Please check Firebase console for Firestore rules and authentication settings.')
       }
-    } catch {
-      setError('Something went wrong. Please try again.')
+    } catch (error: Error | unknown) {
+      console.error('Signup error details:', error)
+      setError(error instanceof Error ? error.message : 'Something went wrong. Please try again.')
     } finally {
       setIsLoading(false)
     }

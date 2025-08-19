@@ -1,9 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Login from './Login'
 import Signup from './Signup'
+import { loginUser, registerUser } from '../services/authService'
+import { auth } from '../services/firebase'
+import { onAuthStateChanged } from 'firebase/auth'
 
 interface UserData {
-  id: number
+  id: string
   email: string
   firstName: string
   lastName: string
@@ -17,42 +20,36 @@ interface AuthWrapperProps {
 export default function AuthWrapper({ onAuthSuccess }: AuthWrapperProps) {
   const [isLogin, setIsLogin] = useState(true)
 
-  // Mock user database - in a real app, this would be handled by your backend
-  const mockUsers = [
-    {
-      email: 'demo@ecofresh.com',
-      password: 'demo123',
-      firstName: 'Demo',
-      lastName: 'User',
-      id: 1
-    }
-  ]
+  // Set up auth state listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is signed in, retrieve additional data from Firestore if needed
+        // For now, we'll just use the basic user info
+        const userData = {
+          id: user.uid,
+          email: user.email || '',
+          firstName: user.displayName?.split(' ')[0] || '',
+          lastName: user.displayName?.split(' ')[1] || '',
+          loginTime: new Date().toISOString()
+        }
+        
+        localStorage.setItem('ecofresh_user', JSON.stringify(userData))
+        onAuthSuccess(userData)
+      }
+    })
+    
+    return () => unsubscribe()
+  }, [])
 
   const handleLogin = async (email: string, password: string): Promise<boolean> => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    // Check credentials against mock database
-    const user = mockUsers.find(u => u.email === email && u.password === password)
-    
-    if (user) {
-      // Store user data in localStorage (in a real app, use secure tokens)
-      const userData = {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        loginTime: new Date().toISOString()
-      }
-      
-      localStorage.setItem('ecofresh_user', JSON.stringify(userData))
-      localStorage.setItem('ecofresh_token', 'mock_token_' + Date.now())
-      
-      onAuthSuccess(userData)
-      return true
+    try {
+      const success = await loginUser(email, password)
+      return success
+    } catch (error) {
+      console.error('Login error:', error)
+      return false
     }
-    
-    return false
   }
 
   const handleSignup = async (userData: {
@@ -61,39 +58,16 @@ export default function AuthWrapper({ onAuthSuccess }: AuthWrapperProps) {
     email: string
     password: string
   }): Promise<boolean> => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    // Check if email already exists
-    const existingUser = mockUsers.find(u => u.email === userData.email)
-    
-    if (existingUser) {
+    try {
+      const result = await registerUser(userData)
+      if (!result.success && result.error) {
+        console.error('Signup error:', result.error)
+      }
+      return result.success
+    } catch (error) {
+      console.error('Signup error:', error)
       return false
     }
-    
-    // Create new user
-    const newUser = {
-      ...userData,
-      id: mockUsers.length + 1
-    }
-    
-    // In a real app, this would be sent to your backend
-    mockUsers.push(newUser)
-    
-    // Store user data
-    const userSession = {
-      id: newUser.id,
-      email: newUser.email,
-      firstName: newUser.firstName,
-      lastName: newUser.lastName,
-      loginTime: new Date().toISOString()
-    }
-    
-    localStorage.setItem('ecofresh_user', JSON.stringify(userSession))
-    localStorage.setItem('ecofresh_token', 'mock_token_' + Date.now())
-    
-    onAuthSuccess(userSession)
-    return true
   }
 
   return (

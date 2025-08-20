@@ -14,10 +14,30 @@ interface TeamMember {
 
 export default function About() {
   const [activeSection, setActiveSection] = useState('mission')
+  const [showJoinModal, setShowJoinModal] = useState(false)
+  const [showDonationModal, setShowDonationModal] = useState(false)
+  const [joinForm, setJoinForm] = useState({
+    name: '',
+    email: '',
+    location: '',
+    interests: [] as string[]
+  })
+  const [donationAmount, setDonationAmount] = useState('25')
 
+  // const navigateTo = (hash: string) => {
+  //   if (hash === '') {
+  //     window.location.hash = ''
+  //   } else {
+  //     window.location.hash = hash
+  //   }
+  // }
 
-
-
+  const communityStats: CommunityStats = {
+    members: '125,000+',
+    cities: '500+',
+    countries: '45',
+    reports: '1M+'
+  }
 
   const teamMembers: TeamMember[] = [
     {

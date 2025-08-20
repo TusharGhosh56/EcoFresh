@@ -170,7 +170,20 @@ interface CityData {
   coords: { lat: number; lng: number }
 }
 
-export default function Dashboard() {
+interface UserData {
+  id: number
+  email: string
+  firstName: string
+  lastName: string
+  loginTime: string
+}
+
+interface DashboardProps {
+  userData?: UserData | null
+  onLogout?: () => void
+}
+
+export default function Dashboard({ userData, onLogout }: DashboardProps) {
   const { 
     loading: apiLoading, 
     error: apiError, 
@@ -518,7 +531,11 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      <Navbar />
+      <Navbar 
+        currentPage="dashboard"
+        onLogout={onLogout}
+        userEmail={userData?.email}
+      />
       
       {/* Hero Section */}
       <div className="dashboard-hero pt-20 pb-12 bg-gradient-to-r from-slate-900 via-blue-900 to-slate-900">

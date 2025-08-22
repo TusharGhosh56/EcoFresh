@@ -1,44 +1,110 @@
-# OpenWeatherMap API Integration - EcoFresh Dashboard
+# Multi-API Air Quality Integration - EcoFresh Dashboard
 
-## 🌐 API Integration Overview
+## 🌐 Multi-Source API Integration Overview
 
-The EcoFresh Air Quality Dashboard now uses **real-time data** from the OpenWeatherMap Air Pollution API to display live air quality information.
+The EcoFresh Air Quality Dashboard now integrates **multiple APIs** to provide comprehensive global air quality data with enhanced reliability and coverage.
 
-### 🔑 API Configuration
+### 🔑 API Configurations
+
+#### 1. OpenWeatherMap API (Primary)
 - **API Key**: `741081f2196356e85d5138db13c2f41c`
 - **Base URL**: `http://api.openweathermap.org/data/2.5`
+
 - **Geocoding URL**: `http://api.openweathermap.org/geo/1.0`
+- **Coverage**: Global
+- **Strength**: Reliable, consistent data format
 
-## 📡 API Endpoints Used
+<!-- #### 2. World Air Quality Index (WAQI) API (Secondary)
+- **API Key**: `[YOUR_WAQI_TOKEN]` (Register at https://aqicn.org/data-platform/token/)
+- **Base URL**: `https://api.waqi.info`
+- **Coverage**: 10,000+ stations worldwide
+- **Strength**: Extensive global coverage, real-time updates -->
 
-### 1. Geocoding API
+#### 2. OpenAQ API (Secondary) ✅ INTEGRATED
+- **API Key**: `7f431ee595f5d727bed0ce6d1fc6d411b651d50ac4883419dcb70768685f03fa`
+- **Base URL**: `https://api.openaq.org/v3`
+- **Coverage**: Global open data from government sources
+- **Authentication**: API Key required
+- **Strength**: Open source, government data aggregation, excellent global coverage
+
+## 🌍 Expanded City Coverage
+
+### Current Cities (14 cities across 4 regions): ✅ IMPLEMENTED
+
+#### North America
+- New York City, NY, USA ✅
+- Los Angeles, CA, USA ✅  
+- Seattle, WA, USA ✅
+- Miami, FL, USA ✅
+- Toronto, ON, Canada ✅
+- Mexico City, Mexico ✅
+
+#### Europe
+- London, UK ✅
+- Paris, France ✅
+- Berlin, Germany ✅
+- Rome, Italy ✅
+
+#### Asia-Pacific
+- Tokyo, Japan ✅
+- Beijing, China ✅
+- New Delhi, India ✅
+- Sydney, Australia ✅
+
+## 📡 Multi-API Endpoints
+
+### OpenWeatherMap API (Primary)
+1. **Geocoding API**
 ```
 GET http://api.openweathermap.org/geo/1.0/direct?q={city name}&limit=1&appid={API_key}
 ```
-- **Purpose**: Get latitude/longitude coordinates for cities
-- **Usage**: Convert city names to coordinates for pollution data requests
 
-### 2. Current Air Pollution API
+2. **Current Air Pollution API**
 ```
 GET http://api.openweathermap.org/data/2.5/air_pollution?lat={lat}&lon={lon}&appid={API_key}
 ```
-- **Purpose**: Get current air quality data
-- **Returns**: AQI level (1-5) and pollutant concentrations (PM2.5, PM10, O₃, etc.)
 
-### 3. Historical Air Pollution API
+3. **Historical Air Pollution API**
 ```
 GET http://api.openweathermap.org/data/2.5/air_pollution/history?lat={lat}&lon={lon}&start={start}&end={end}&appid={API_key}
 ```
-- **Purpose**: Get historical air quality data for trends
-- **Usage**: Generate 12-hour trend charts
 
-## 🏙️ Monitored Cities
+### OpenAQ API (Secondary/Fallback)
+1. **Locations API**
+```
+GET https://api.openaq.org/v3/locations?city={city}&country={country}&limit=10
+Headers: X-API-Key: {API_key}
+```
 
-The dashboard tracks air quality for these major US cities:
-1. **New York City, NY**
-2. **Los Angeles, CA**
-3. **Seattle, WA**
-4. **Miami, FL**
+2. **Measurements API**
+```
+GET https://api.openaq.org/v3/measurements?location_id={location_id}&limit=100&order_by=datetime&sort=desc
+Headers: X-API-Key: {API_key}
+```
+
+## 🔄 Enhanced Data Flow with Multi-API Support
+
+1. **App Initialization**
+   - `useAirQuality` hook loads on mount
+   - Fetches data from multiple APIs simultaneously
+   - Uses OpenWeatherMap as primary, OpenAQ as fallback
+
+2. **Multi-API Data Processing**
+   - Tries OpenWeatherMap first (more reliable format)
+   - Falls back to OpenAQ if OpenWeatherMap fails
+   - Merges and normalizes data from different sources
+   - Converts different AQI scales to US EPA standard
+
+3. **Resilient Data Strategy**
+   - **Primary**: OpenWeatherMap (reliable, consistent)
+   - **Fallback**: OpenAQ (broader coverage, government data)
+   - **Graceful degradation**: Shows data from any available source
+   - **Error handling**: Individual city failures don't break entire app
+
+4. **Enhanced Historical Data**
+   - OpenWeatherMap provides 24-hour historical data
+   - OpenAQ can provide longer historical trends
+   - Charts update with the best available data source
 
 ## 🎯 Real-Time Features
 
@@ -62,28 +128,6 @@ The dashboard tracks air quality for these major US cities:
 - **Real-time Alerts**: Based on actual air quality conditions
 - **Pollution Warnings**: Triggered by poor air quality
 - **API Status**: Shows connection to live data source
-
-## 🔄 Data Flow
-
-1. **App Initialization**
-   - `useAirQuality` hook loads on mount
-   - Fetches coordinates for all cities
-   - Gets current pollution data for each city
-
-2. **Data Processing**
-   - Converts WHO AQI (1-5) to US EPA scale (0-300)
-   - Categorizes air quality status
-   - Formats pollutant concentrations
-
-3. **Real-time Updates**
-   - Refresh button in header
-   - Error handling with retry options
-   - Loading states throughout the app
-
-4. **Historical Data**
-   - Fetches last 24 hours of data
-   - Processes into 12-hour intervals
-   - Updates trend charts
 
 ## ⚡ Performance Features
 
@@ -155,4 +199,4 @@ The API integration is automatic and requires no additional configuration. Users
 - **Professional-grade data** used by weather services worldwide
 - **Consistent with WHO standards**
 
-The integration transforms the dashboard from a static demo into a **fully functional air quality monitoring system** with live, accurate data from a trusted meteorological source. 
+The integration transforms the dashboard from a static demo into a **fully functional air quality monitoring system** with live, accurate data from a trusted meteorological source.

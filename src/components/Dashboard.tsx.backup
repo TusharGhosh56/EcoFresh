@@ -1,0 +1,923 @@
+import { useState, useEffect } from 'react'
+import { gsap } from 'gsap'
+import { ScrollTrigger } from 'gsap/ScrollTrigger'
+import Navbar from './Navbar'
+import Footer from './Footer'
+import { EXPANDED_CITIES } from '../hooks/useAirQuality'
+
+gsap.registerPlugin(ScrollTrigger)
+
+// Country code to country name mapping
+const COUNTRY_NAMES: { [key: string]: string } = {
+  'AE': 'United Arab Emirates',
+  'AR': 'Argentina',
+  'AT': 'Austria',
+  'AU': 'Australia',
+  'BE': 'Belgium',
+  'BR': 'Brazil',
+  'CA': 'Canada',
+  'CD': 'Democratic Republic of Congo',
+  'CH': 'Switzerland',
+  'CL': 'Chile',
+  'CN': 'China',
+  'CO': 'Colombia',
+  'CZ': 'Czech Republic',
+  'DE': 'Germany',
+  'DK': 'Denmark',
+  'DZ': 'Algeria',
+  'EG': 'Egypt',
+  'ES': 'Spain',
+  'ET': 'Ethiopia',
+  'FI': 'Finland',
+  'FR': 'France',
+  'GB': 'United Kingdom',
+  'GH': 'Ghana',
+  'GR': 'Greece',
+  'HU': 'Hungary',
+  'ID': 'Indonesia',
+  'IE': 'Ireland',
+  'IL': 'Israel',
+  'IN': 'India',
+  'IQ': 'Iraq',
+  'IR': 'Iran',
+  'IT': 'Italy',
+  'JP': 'Japan',
+  'KE': 'Kenya',
+  'KR': 'South Korea',
+  'MA': 'Morocco',
+  'MX': 'Mexico',
+  'MY': 'Malaysia',
+  'NG': 'Nigeria',
+  'NL': 'Netherlands',
+  'NO': 'Norway',
+  'NZ': 'New Zealand',
+  'PE': 'Peru',
+  'PH': 'Philippines',
+  'PL': 'Poland',
+  'PT': 'Portugal',
+  'SA': 'Saudi Arabia',
+  'SE': 'Sweden',
+  'SG': 'Singapore',
+  'TH': 'Thailand',
+  'TR': 'Turkey',
+  'US': 'United States',
+  'VE': 'Venezuela',
+  'VN': 'Vietnam',
+  'ZA': 'South Africa'
+}
+
+// Generate dynamic countries and cities from the expanded cities data
+const generateCountriesAndCities = () => {
+  const countries: { [key: string]: { cities: string[] } } = {}
+  
+  EXPANDED_CITIES.forEach(city => {
+    const countryName = COUNTRY_NAMES[city.country] || city.country
+    
+    if (!countries[countryName]) {
+      countries[countryName] = { cities: [] }
+    }
+    
+    // Add the city if it's not already in the list
+    if (!countries[countryName].cities.includes(city.name)) {
+      countries[countryName].cities.push(city.name)
+    }
+  })
+  
+  // Sort cities alphabetically for each country
+  Object.keys(countries).forEach(country => {
+    countries[country].cities.sort()
+  })
+  
+  return countries
+}
+
+// Dynamic country and city data based on our multi-API integration
+const COUNTRIES = generateCountriesAndCities()
+
+// Mock AQI data generator
+  'Canada': {
+    states: {
+      'Ontario': ['Toronto', 'Ottawa', 'Hamilton', 'London', 'Kitchener', 'Windsor', 'Oshawa', 'Barrie', 'Guelph', 'Kingston'],
+      'Quebec': ['Montreal', 'Quebec City', 'Laval', 'Gatineau', 'Longueuil', 'Sherbrooke', 'Saguenay', 'Trois-Rivières', 'Terrebonne', 'Saint-Jean-sur-Richelieu'],
+      'British Columbia': ['Vancouver', 'Surrey', 'Burnaby', 'Richmond', 'Abbotsford', 'Coquitlam', 'Saanich', 'Delta', 'Kelowna', 'Langley'],
+      'Alberta': ['Calgary', 'Edmonton', 'Red Deer', 'Lethbridge', 'St. Albert', 'Medicine Hat', 'Grande Prairie', 'Airdrie', 'Spruce Grove', 'Leduc'],
+      'Manitoba': ['Winnipeg', 'Brandon', 'Steinbach', 'Thompson', 'Portage la Prairie', 'Winkler', 'Selkirk', 'Morden', 'Dauphin', 'Flin Flon']
+    }
+  },
+  'Mexico': {
+    states: {
+      'Mexico City': ['Mexico City', 'Ecatepec', 'Guadalajara', 'Nezahualcóyotl', 'Gustavo A. Madero', 'Iztapalapa', 'Álvaro Obregón', 'Tlalnepantla', 'Coyoacán', 'Naucalpan'],
+      'Jalisco': ['Guadalajara', 'Zapopan', 'Tlaquepaque', 'Tonalá', 'Puerto Vallarta', 'Lagos de Moreno', 'Tepatitlán', 'El Salto', 'Tlajomulco', 'Ocotlán'],
+      'Nuevo León': ['Monterrey', 'Guadalupe', 'San Nicolás', 'Apodaca', 'General Escobedo', 'Santa Catarina', 'San Pedro Garza García', 'Juárez', 'Cadereyta', 'García']
+    }
+  },
+  'United Kingdom': {
+    states: {
+      'England': ['London', 'Birmingham', 'Manchester', 'Leeds', 'Liverpool', 'Sheffield', 'Bristol', 'Newcastle', 'Nottingham', 'Leicester'],
+      'Scotland': ['Edinburgh', 'Glasgow', 'Aberdeen', 'Dundee', 'Stirling', 'Perth', 'Inverness', 'Paisley', 'East Kilbride', 'Kilmarnock'],
+      'Wales': ['Cardiff', 'Swansea', 'Newport', 'Wrexham', 'Barry', 'Caerphilly', 'Bridgend', 'Neath', 'Port Talbot', 'Cwmbran'],
+      'Northern Ireland': ['Belfast', 'Derry', 'Lisburn', 'Newtownabbey', 'Bangor', 'Craigavon', 'Castlereagh', 'Ballymena', 'Newtownards', 'Carrickfergus']
+    }
+  },
+  'France': {
+    states: {
+      'Île-de-France': ['Paris', 'Boulogne-Billancourt', 'Saint-Denis', 'Argenteuil', 'Montreuil', 'Créteil', 'Nanterre', 'Courbevoie', 'Versailles', 'Rueil-Malmaison'],
+      'Provence-Alpes-Côte d\'Azur': ['Marseille', 'Nice', 'Toulon', 'Aix-en-Provence', 'Antibes', 'Cannes', 'Avignon', 'Fréjus', 'Arles', 'Grasse'],
+      'Auvergne-Rhône-Alpes': ['Lyon', 'Saint-Étienne', 'Grenoble', 'Villeurbanne', 'Clermont-Ferrand', 'Annecy', 'Valence', 'Chambéry', 'Le Puy-en-Velay', 'Roanne'],
+      'Occitanie': ['Toulouse', 'Montpellier', 'Nîmes', 'Perpignan', 'Béziers', 'Carcassonne', 'Albi', 'Tarbes', 'Auch', 'Cahors']
+    }
+  },
+  'Germany': {
+    states: {
+      'North Rhine-Westphalia': ['Berlin', 'Cologne', 'Düsseldorf', 'Dortmund', 'Essen', 'Duisburg', 'Bochum', 'Wuppertal', 'Bielefeld', 'Bonn'],
+      'Bavaria': ['Munich', 'Nuremberg', 'Augsburg', 'Würzburg', 'Regensburg', 'Ingolstadt', 'Fürth', 'Erlangen', 'Bayreuth', 'Bamberg'],
+      'Baden-Württemberg': ['Stuttgart', 'Mannheim', 'Karlsruhe', 'Freiburg', 'Heidelberg', 'Ulm', 'Heilbronn', 'Pforzheim', 'Reutlingen', 'Esslingen'],
+      'Lower Saxony': ['Hanover', 'Braunschweig', 'Oldenburg', 'Osnabrück', 'Wolfsburg', 'Göttingen', 'Salzgitter', 'Hildesheim', 'Delmenhorst', 'Wilhelmshaven']
+    }
+  },
+  'Italy': {
+    states: {
+      'Lazio': ['Rome', 'Latina', 'Frosinone', 'Viterbo', 'Rieti', 'Civitavecchia', 'Guidonia Montecelio', 'Fiumicino', 'Aprilia', 'Pomezia'],
+      'Lombardy': ['Milan', 'Brescia', 'Bergamo', 'Monza', 'Como', 'Cremona', 'Mantova', 'Pavia', 'Varese', 'Lecco'],
+      'Campania': ['Naples', 'Salerno', 'Caserta', 'Giugliano in Campania', 'Torre del Greco', 'Pozzuoli', 'Casoria', 'Afragola', 'Acerra', 'Portici'],
+      'Veneto': ['Venice', 'Verona', 'Padua', 'Vicenza', 'Treviso', 'Rovigo', 'Belluno', 'Chioggia', 'Bassano del Grappa', 'San Donà di Piave']
+    }
+  },
+  'Japan': {
+    states: {
+      'Tokyo': ['Tokyo', 'Shibuya', 'Shinjuku', 'Harajuku', 'Ginza', 'Akihabara', 'Roppongi', 'Asakusa', 'Ueno', 'Ikebukuro'],
+      'Osaka': ['Osaka', 'Sakai', 'Higashiosaka', 'Hirakata', 'Toyonaka', 'Suita', 'Takatsuki', 'Neyagawa', 'Yao', 'Ibaraki'],
+      'Kanagawa': ['Yokohama', 'Kawasaki', 'Sagamihara', 'Fujisawa', 'Chigasaki', 'Hiratsuka', 'Odawara', 'Yamato', 'Zushi', 'Kamakura'],
+      'Aichi': ['Nagoya', 'Toyota', 'Okazaki', 'Ichinomiya', 'Kasugai', 'Anjo', 'Kariya', 'Nisshin', 'Komaki', 'Inazawa']
+    }
+  },
+  'China': {
+    states: {
+      'Beijing': ['Beijing', 'Chaoyang', 'Haidian', 'Fengtai', 'Shijingshan', 'Mentougou', 'Fangshan', 'Tongzhou', 'Shunyi', 'Changping'],
+      'Shanghai': ['Shanghai', 'Pudong', 'Huangpu', 'Xuhui', 'Changning', 'Jing\'an', 'Putuo', 'Hongkou', 'Yangpu', 'Minhang'],
+      'Guangdong': ['Guangzhou', 'Shenzhen', 'Dongguan', 'Foshan', 'Zhongshan', 'Zhuhai', 'Jiangmen', 'Huizhou', 'Zhaoqing', 'Shantou'],
+      'Jiangsu': ['Nanjing', 'Suzhou', 'Wuxi', 'Changzhou', 'Nantong', 'Yangzhou', 'Xuzhou', 'Zhenjiang', 'Huai\'an', 'Yancheng']
+    }
+  },
+  'India': {
+    states: {
+      'Delhi': ['New Delhi', 'Delhi', 'North Delhi', 'South Delhi', 'East Delhi', 'West Delhi', 'Central Delhi', 'Shahdara', 'South West Delhi', 'North West Delhi'],
+      'Maharashtra': ['Mumbai', 'Pune', 'Nagpur', 'Thane', 'Nashik', 'Aurangabad', 'Solapur', 'Bhiwandi', 'Amravati', 'Nanded'],
+      'Karnataka': ['Bangalore', 'Mysore', 'Hubli', 'Mangalore', 'Belgaum', 'Gulbarga', 'Davanagere', 'Bellary', 'Bijapur', 'Shimoga'],
+      'Tamil Nadu': ['Chennai', 'Coimbatore', 'Madurai', 'Tiruchirappalli', 'Salem', 'Tirunelveli', 'Erode', 'Vellore', 'Thoothukudi', 'Dindigul']
+    }
+  },
+  'Australia': {
+    states: {
+      'New South Wales': ['Sydney', 'Newcastle', 'Wollongong', 'Central Coast', 'Maitland', 'Albury', 'Wagga Wagga', 'Port Macquarie', 'Tamworth', 'Orange'],
+      'Victoria': ['Melbourne', 'Geelong', 'Ballarat', 'Bendigo', 'Frankston', 'Dandenong', 'Latrobe', 'Shepparton', 'Mildura', 'Warrnambool'],
+      'Queensland': ['Brisbane', 'Gold Coast', 'Sunshine Coast', 'Townsville', 'Cairns', 'Toowoomba', 'Rockhampton', 'Mackay', 'Bundaberg', 'Hervey Bay'],
+      'Western Australia': ['Perth', 'Rockingham', 'Mandurah', 'Bunbury', 'Kalgoorlie', 'Geraldton', 'Albany', 'Busselton', 'Ellenbrook', 'Wanneroo']
+    }
+  },
+  'Spain': {
+    states: {
+      'Madrid': ['Madrid', 'Móstoles', 'Alcalá de Henares', 'Fuenlabrada', 'Leganés', 'Getafe', 'Alcorcón', 'Torrejón de Ardoz', 'Parla', 'Alcobendas'],
+      'Catalonia': ['Barcelona', 'L\'Hospitalet de Llobregat', 'Badalona', 'Terrassa', 'Sabadell', 'Lleida', 'Tarragona', 'Mataró', 'Santa Coloma de Gramenet', 'Reus'],
+      'Valencia': ['Valencia', 'Alicante', 'Elche', 'Castellón de la Plana', 'Torrevieja', 'Orihuela', 'Gandia', 'Sagunto', 'Alzira', 'Paterna'],
+      'Andalusia': ['Seville', 'Málaga', 'Córdoba', 'Granada', 'Jerez de la Frontera', 'Almería', 'Huelva', 'Marbella', 'Dos Hermanas', 'Algeciras']
+    }
+  },
+  'Netherlands': {
+    states: {
+      'North Holland': ['Amsterdam', 'Haarlem', 'Zaanstad', 'Haarlemmermeer', 'Alkmaar', 'Hilversum', 'Amstelveen', 'Purmerend', 'Hoorn', 'Velsen'],
+      'South Holland': ['Rotterdam', 'The Hague', 'Leiden', 'Dordrecht', 'Zoetermeer', 'Delft', 'Alphen aan den Rijn', 'Westland', 'Gouda', 'Katwijk'],
+      'Utrecht': ['Utrecht', 'Amersfoort', 'Nieuwegein', 'Veenendaal', 'Zeist', 'Houten', 'Vijfheerenlanden', 'De Bilt', 'Woerden', 'Soest'],
+      'North Brabant': ['Eindhoven', 'Tilburg', 'Breda', '\'s-Hertogenbosch', 'Almere', 'Groningen', 'Nijmegen', 'Enschede', 'Haarlem', 'Arnhem']
+    }
+  },
+  'Belgium': {
+    states: {
+      'Brussels': ['Brussels', 'Schaerbeek', 'Anderlecht', 'Molenbeek-Saint-Jean', 'Ixelles', 'Uccle', 'Forest', 'Jette', 'Etterbeek', 'Evere'],
+      'Flanders': ['Antwerp', 'Ghent', 'Bruges', 'Leuven', 'Mechelen', 'Aalst', 'Kortrijk', 'Hasselt', 'Sint-Niklaas', 'Ostend'],
+      'Wallonia': ['Liège', 'Charleroi', 'Namur', 'Mons', 'La Louvière', 'Tournai', 'Seraing', 'Verviers', 'Mouscron', 'Braine-l\'Alleud']
+    }
+  },
+  'Austria': {
+    states: {
+      'Vienna': ['Vienna', 'Donaustadt', 'Favoriten', 'Floridsdorf', 'Simmering', 'Meidling', 'Ottakring', 'Hernals', 'Hietzing', 'Penzing'],
+      'Upper Austria': ['Linz', 'Wels', 'Steyr', 'Leonding', 'Traun', 'Ansfelden', 'Enns', 'Ried im Innkreis', 'Braunau am Inn', 'Vöcklabruck'],
+      'Styria': ['Graz', 'Leoben', 'Kapfenberg', 'Bruck an der Mur', 'Feldbach', 'Köflach', 'Voitsberg', 'Judenburg', 'Knittelfeld', 'Leibnitz']
+    }
+  },
+  'Switzerland': {
+    states: {
+      'Zurich': ['Zurich', 'Winterthur', 'Uster', 'Dübendorf', 'Dietikon', 'Wetzikon', 'Kloten', 'Schlieren', 'Vernier', 'Rapperswil-Jona'],
+      'Geneva': ['Geneva', 'Lausanne', 'Yverdon-les-Bains', 'Montreux', 'Nyon', 'Vevey', 'Pully', 'Renens', 'Morges', 'Gland'],
+      'Basel': ['Basel', 'Bern', 'Lucerne', 'St. Gallen', 'Lugano', 'Biel/Bienne', 'Thun', 'Köniz', 'La Chaux-de-Fonds', 'Schaffhausen']
+    }
+  },
+  'Sweden': {
+    states: {
+      'Stockholm': ['Stockholm', 'Göteborg', 'Malmö', 'Uppsala', 'Västerås', 'Örebro', 'Linköping', 'Helsingborg', 'Jönköping', 'Norrköping'],
+      'Västra Götaland': ['Göteborg', 'Borås', 'Trollhättan', 'Uddevalla', 'Mölndal', 'Skövde', 'Lidköping', 'Alingsås', 'Kungälv', 'Lerum'],
+      'Skåne': ['Malmö', 'Helsingborg', 'Lund', 'Kristianstad', 'Landskrona', 'Trelleborg', 'Ängelholm', 'Hässleholm', 'Ystad', 'Eslöv']
+    }
+  },
+  'Denmark': {
+    states: {
+      'Capital Region': ['Copenhagen', 'Frederiksberg', 'Gentofte', 'Gladsaxe', 'Lyngby-Taarbæk', 'Tårnby', 'Albertslund', 'Hvidovre', 'Vallensbæk', 'Ballerup'],
+      'Central Denmark': ['Aarhus', 'Aalborg', 'Randers', 'Kolding', 'Horsens', 'Vejle', 'Roskilde', 'Herning', 'Silkeborg', 'Næstved'],
+      'Southern Denmark': ['Odense', 'Esbjerg', 'Kolding', 'Vejle', 'Fredericia', 'Haderslev', 'Aabenraa', 'Sønderborg', 'Middelfart', 'Varde']
+    }
+  },
+  'Norway': {
+    states: {
+      'Oslo': ['Oslo', 'Bærum', 'Drammen', 'Asker', 'Lillestrøm', 'Sandvika', 'Ski', 'Moss', 'Fredrikstad', 'Sarpsborg'],
+      'Hordaland': ['Bergen', 'Stavanger', 'Kristiansand', 'Fredrikstad', 'Sandnes', 'Tromsø', 'Drammen', 'Asker', 'Bærum', 'Tonsberg'],
+      'Trøndelag': ['Trondheim', 'Steinkjer', 'Levanger', 'Verdal', 'Namsos', 'Orkdal', 'Melhus', 'Klæbu', 'Malvik', 'Stjørdal']
+    }
+  },
+  'Finland': {
+    states: {
+      'Uusimaa': ['Helsinki', 'Espoo', 'Vantaa', 'Kauniainen', 'Kerava', 'Järvenpää', 'Kirkkonummi', 'Nurmijärvi', 'Sipoo', 'Tuusula'],
+      'Pirkanmaa': ['Tampere', 'Nokia', 'Ylöjärvi', 'Kangasala', 'Lempäälä', 'Orivesi', 'Pirkkala', 'Valkeakoski', 'Mänttä-Vilppula', 'Akaa'],
+      'Northern Ostrobothnia': ['Oulu', 'Raahe', 'Ylivieska', 'Oulainen', 'Haapajärvi', 'Nivala', 'Kuusamo', 'Ii', 'Kempele', 'Liminka']
+    }
+  },
+  'Ireland': {
+    states: {
+      'Leinster': ['Dublin', 'Cork', 'Limerick', 'Galway', 'Waterford', 'Drogheda', 'Dundalk', 'Swords', 'Bray', 'Navan'],
+      'Munster': ['Cork', 'Limerick', 'Waterford', 'Tralee', 'Killarney', 'Ennis', 'Thurles', 'Clonmel', 'Kilkenny', 'Wexford'],
+      'Connacht': ['Galway', 'Sligo', 'Castlebar', 'Ballina', 'Carrick-on-Shannon', 'Boyle', 'Roscommon', 'Tuam', 'Ballinasloe', 'Athlone']
+    }
+  },
+  'Czech Republic': {
+    states: {
+      'Prague': ['Prague', 'Brno', 'Ostrava', 'Plzen', 'Liberec', 'Olomouc', 'Budweis', 'Hradec Králové', 'Ústí nad Labem', 'Pardubice'],
+      'Central Bohemia': ['Kladno', 'Most', 'Teplice', 'Karlovy Vary', 'Jablonec nad Nisou', 'Mladá Boleslav', 'Prostějov', 'Přerov', 'Děčín', 'Chomutov'],
+      'South Moravia': ['Brno', 'Zlín', 'Olomouc', 'Prostějov', 'Přerov', 'Uherské Hradiště', 'Kroměříž', 'Vsetín', 'Hodonín', 'Břeclav']
+    }
+  },
+  'Poland': {
+    states: {
+      'Masovian': ['Warsaw', 'Radom', 'Płock', 'Siedlce', 'Ostrołęka', 'Ciechanów', 'Mińsk Mazowiecki', 'Sochaczew', 'Żyrardów', 'Nowy Dwór Mazowiecki'],
+      'Lesser Poland': ['Kraków', 'Tarnów', 'Nowy Sącz', 'Oświęcim', 'Chrzanów', 'Olkusz', 'Zakopane', 'Wadowice', 'Bochnia', 'Gorlice'],
+      'Silesian': ['Katowice', 'Częstochowa', 'Sosnowiec', 'Gliwice', 'Zabrze', 'Bytom', 'Bielsko-Biała', 'Ruda Śląska', 'Rybnik', 'Tychy']
+    }
+  },
+  'Hungary': {
+    states: {
+      'Central Hungary': ['Budapest', 'Debrecen', 'Szeged', 'Miskolc', 'Pécs', 'Győr', 'Nyíregyháza', 'Kecskemét', 'Székesfehérvár', 'Szombathely'],
+      'Northern Hungary': ['Miskolc', 'Eger', 'Salgótarján', 'Kazincbarcika', 'Ózd', 'Hatvan', 'Gyöngyös', 'Balassagyarmat', 'Vác', 'Pásztó'],
+      'Great Plain': ['Debrecen', 'Szeged', 'Kecskemét', 'Nyíregyháza', 'Békéscsaba', 'Szolnok', 'Cegléd', 'Hódmezővásárhely', 'Kiskunfélegyháza', 'Jászberény']
+    }
+  },
+  'Portugal': {
+    states: {
+      'Lisbon': ['Lisbon', 'Sintra', 'Vila Nova de Gaia', 'Porto', 'Braga', 'Coimbra', 'Funchal', 'Almada', 'Agualva-Cacém', 'Queluz'],
+      'Porto': ['Porto', 'Vila Nova de Gaia', 'Braga', 'Matosinhos', 'Gondomar', 'Maia', 'Guimarães', 'Vila do Conde', 'Póvoa de Varzim', 'Famalicão'],
+      'Central': ['Coimbra', 'Leiria', 'Aveiro', 'Viseu', 'Castelo Branco', 'Guarda', 'Figueira da Foz', 'Tomar', 'Torres Vedras', 'Caldas da Rainha']
+    }
+  },
+  'Greece': {
+    states: {
+      'Attica': ['Athens', 'Piraeus', 'Peristeri', 'Kallithea', 'Nikaia', 'Glyfada', 'Volos', 'Ioannina', 'Kavala', 'Chania'],
+      'Central Macedonia': ['Thessaloniki', 'Katerini', 'Serres', 'Veria', 'Kozani', 'Giannitsa', 'Kilkis', 'Edessa', 'Florina', 'Polygyros'],
+      'Crete': ['Heraklion', 'Chania', 'Rethymno', 'Agios Nikolaos', 'Ierapetra', 'Sitia', 'Moires', 'Arkalochori', 'Kissamos', 'Neapoli']
+    }
+  },
+  'South Korea': {
+    states: {
+      'Seoul': ['Seoul', 'Busan', 'Incheon', 'Daegu', 'Daejeon', 'Gwangju', 'Suwon', 'Ulsan', 'Changwon', 'Goyang'],
+      'Gyeonggi': ['Suwon', 'Goyang', 'Yongin', 'Seongnam', 'Bucheon', 'Ansan', 'Anyang', 'Hwaseong', 'Namyangju', 'Pyeongtaek'],
+      'Busan': ['Busan', 'Changwon', 'Ulsan', 'Gimhae', 'Jinju', 'Yangsan', 'Geoje', 'Tongyeong', 'Sacheon', 'Kimhae']
+    }
+  },
+  'Thailand': {
+    states: {
+      'Bangkok': ['Bangkok', 'Samut Prakan', 'Nonthaburi', 'Pathum Thani', 'Samut Sakhon', 'Nakhon Pathom', 'Chon Buri', 'Rayong', 'Chachoengsao', 'Prachin Buri'],
+      'Central': ['Nakhon Sawan', 'Lopburi', 'Saraburi', 'Sing Buri', 'Chai Nat', 'Uthai Thani', 'Kamphaeng Phet', 'Tak', 'Sukhothai', 'Phitsanulok'],
+      'Northern': ['Chiang Mai', 'Chiang Rai', 'Lampang', 'Lamphun', 'Mae Hong Son', 'Nan', 'Phayao', 'Phrae', 'Uttaradit', 'Sukhothai']
+    }
+  },
+  'Indonesia': {
+    states: {
+      'Jakarta': ['Jakarta', 'Surabaya', 'Bandung', 'Bekasi', 'Medan', 'Depok', 'Tangerang', 'Palembang', 'Semarang', 'Makassar'],
+      'West Java': ['Bandung', 'Bekasi', 'Depok', 'Tangerang', 'Bogor', 'Cimahi', 'Tasikmalaya', 'Banjar', 'Sukabumi', 'Cirebon'],
+      'East Java': ['Surabaya', 'Malang', 'Kediri', 'Blitar', 'Mojokerto', 'Madiun', 'Pasuruan', 'Probolinggo', 'Jember', 'Banyuwangi']
+    }
+  },
+  'Philippines': {
+    states: {
+      'Metro Manila': ['Manila', 'Quezon City', 'Caloocan', 'Las Piñas', 'Makati', 'Malabon', 'Mandaluyong', 'Marikina', 'Muntinlupa', 'Navotas'],
+      'Central Luzon': ['Angeles', 'Antipolo', 'Taguig', 'Pasig', 'Valenzuela', 'Dasmariñas', 'General Santos', 'Parañaque', 'Zamboanga', 'Bacoor'],
+      'Calabarzon': ['Antipolo', 'Dasmariñas', 'Bacoor', 'General Trias', 'Imus', 'Biñan', 'Santa Rosa', 'San Pedro', 'Cabuyao', 'Calamba']
+    }
+  },
+  'Singapore': {
+    states: {
+      'Central': ['Singapore', 'Orchard', 'Marina Bay', 'Raffles Place', 'Chinatown', 'Little India', 'Kampong Glam', 'Clarke Quay', 'Boat Quay', 'Sentosa'],
+      'East': ['Changi', 'Tampines', 'Pasir Ris', 'Bedok', 'Simei', 'Tanah Merah', 'Expo', 'Kembangan', 'Eunos', 'Paya Lebar'],
+      'West': ['Jurong', 'Tuas', 'Boon Lay', 'Pioneer', 'Joo Koon', 'Lakeside', 'Chinese Garden', 'Clementi', 'Dover', 'Buona Vista']
+    }
+  },
+  'Vietnam': {
+    states: {
+      'Ho Chi Minh City': ['Ho Chi Minh City', 'Thu Duc', 'Bien Hoa', 'Vung Tau', 'My Tho', 'Can Tho', 'Long Xuyen', 'Chau Doc', 'Ha Tien', 'Rach Gia'],
+      'Hanoi': ['Hanoi', 'Hai Phong', 'Nam Dinh', 'Thai Binh', 'Ninh Binh', 'Ha Long', 'Cam Pha', 'Uong Bi', 'Dong Hoi', 'Hue'],
+      'Central': ['Da Nang', 'Hoi An', 'Nha Trang', 'Da Lat', 'Quy Nhon', 'Pleiku', 'Buon Ma Thuot', 'Phan Thiet', 'Vung Tau', 'Can Tho']
+    }
+  },
+  'Malaysia': {
+    states: {
+      'Kuala Lumpur': ['Kuala Lumpur', 'Petaling Jaya', 'Shah Alam', 'Klang', 'Subang Jaya', 'Ampang', 'Selayang', 'Kajang', 'Puchong', 'Sepang'],
+      'Selangor': ['Shah Alam', 'Petaling Jaya', 'Klang', 'Subang Jaya', 'Ampang', 'Selayang', 'Kajang', 'Puchong', 'Sepang', 'Rawang'],
+      'Penang': ['George Town', 'Seberang Perai', 'Bayan Lepas', 'Tanjung Bungah', 'Gurney Drive', 'Komtar', 'Penang Hill', 'Balik Pulau', 'Air Itam', 'Jelutong']
+    }
+  },
+  'Turkey': {
+    states: {
+      'Istanbul': ['Istanbul', 'Ankara', 'Izmir', 'Bursa', 'Adana', 'Gaziantep', 'Konya', 'Antalya', 'Kayseri', 'Mersin'],
+      'Ankara': ['Ankara', 'Çankaya', 'Keçiören', 'Yenimahalle', 'Mamak', 'Sincan', 'Etimesgut', 'Altındağ', 'Gölbaşı', 'Pursaklar'],
+      'Izmir': ['Izmir', 'Konak', 'Bornova', 'Karşıyaka', 'Buca', 'Bayraklı', 'Gaziemir', 'Alsancak', 'Çiğli', 'Balçova']
+    }
+  },
+  'United Arab Emirates': {
+    states: {
+      'Dubai': ['Dubai', 'Abu Dhabi', 'Sharjah', 'Al Ain', 'Ajman', 'Ras Al Khaimah', 'Fujairah', 'Umm Al Quwain', 'Khor Fakkan', 'Dibba Al-Fujairah'],
+      'Abu Dhabi': ['Abu Dhabi', 'Al Ain', 'Madinat Zayed', 'Ruwais', 'Liwa Oasis', 'Mirfa', 'Sila', 'Dalma Island', 'Sir Bani Yas', 'Saadiyat Island'],
+      'Northern Emirates': ['Sharjah', 'Ajman', 'Ras Al Khaimah', 'Fujairah', 'Umm Al Quwain', 'Kalba', 'Khor Fakkan', 'Dibba', 'Al Dhaid', 'Masafi']
+    }
+  },
+  'Iran': {
+    states: {
+      'Tehran': ['Tehran', 'Mashhad', 'Isfahan', 'Karaj', 'Shiraz', 'Tabriz', 'Qom', 'Ahvaz', 'Kermanshah', 'Urmia'],
+      'Razavi Khorasan': ['Mashhad', 'Neyshabur', 'Sabzevar', 'Torbat-e Heydarieh', 'Kashmar', 'Quchan', 'Bardaskan', 'Kalat', 'Fariman', 'Chenaran'],
+      'Isfahan': ['Isfahan', 'Kashan', 'Najafabad', 'Khomeini Shahr', 'Shahin Shahr', 'Mobarakeh', 'Falavarjan', 'Dehaghan', 'Ardestan', 'Natanz']
+    }
+  },
+  'Saudi Arabia': {
+    states: {
+      'Riyadh': ['Riyadh', 'Jeddah', 'Mecca', 'Medina', 'Dammam', 'Khobar', 'Dhahran', 'Taif', 'Tabuk', 'Buraidah'],
+      'Makkah': ['Jeddah', 'Mecca', 'Taif', 'Rabigh', 'Yanbu', 'Al Lith', 'Al Qunfudhah', 'Khulais', 'Bahra', 'Thuwal'],
+      'Eastern Province': ['Dammam', 'Khobar', 'Dhahran', 'Jubail', 'Al-Ahsa', 'Qatif', 'Hafr Al-Batin', 'Ras Tanura', 'Abqaiq', 'Khafji']
+    }
+  },
+  'Iraq': {
+    states: {
+      'Baghdad': ['Baghdad', 'Basra', 'Mosul', 'Erbil', 'Sulaymaniyah', 'Najaf', 'Karbala', 'Kirkuk', 'Nasiriyah', 'Amarah'],
+      'Basra': ['Basra', 'Umm Qasr', 'Az Zubayr', 'Abu Al Khasib', 'Al Qurna', 'Shatt al-Arab', 'Fao', 'Safwan', 'Khor al-Zubair', 'Al Hartha'],
+      'Nineveh': ['Mosul', 'Tel Afar', 'Sinjar', 'Hamdaniya', 'Shekhan', 'Al-Hamdaniya', 'Bartella', 'Qaraqosh', 'Sheikhan', 'Tilkaif']
+    }
+  },
+  'Israel': {
+    states: {
+      'Tel Aviv': ['Tel Aviv', 'Jerusalem', 'Haifa', 'Rishon LeZion', 'Petah Tikva', 'Ashdod', 'Netanya', 'Beer Sheva', 'Holon', 'Bnei Brak'],
+      'Jerusalem': ['Jerusalem', 'Bethlehem', 'Ramallah', 'Hebron', 'Nablus', 'Jericho', 'Tulkarm', 'Qalqilya', 'Jenin', 'Salfit'],
+      'Northern': ['Haifa', 'Nazareth', 'Acre', 'Tiberias', 'Safed', 'Kiryat Shmona', 'Nahariya', 'Carmiel', 'Migdal HaEmek', 'Katzrin']
+    }
+  },
+  'Egypt': {
+    states: {
+      'Cairo': ['Cairo', 'Alexandria', 'Giza', 'Shubra El Kheima', 'Port Said', 'Suez', 'Luxor', 'al-Mansura', 'El-Mahalla El-Kubra', 'Tanta'],
+      'Alexandria': ['Alexandria', 'Damanhur', 'Kafr el-Dawwar', 'Rashid', 'Edko', 'Abu Hummus', 'Mahmudiyah', 'Delingat', 'Shubrakhit', 'Kom Hamada'],
+      'Giza': ['Giza', '6th of October City', 'Sheikh Zayed City', 'Badrashin', 'Al Badrashein', 'Kerdasa', 'Abu Rawash', 'Mit Rahina', 'Saqqara', 'Dahshur']
+    }
+  },
+  'Nigeria': {
+    states: {
+      'Lagos': ['Lagos', 'Ibadan', 'Kano', 'Kaduna', 'Port Harcourt', 'Benin City', 'Maiduguri', 'Zaria', 'Aba', 'Jos'],
+      'Kano': ['Kano', 'Kaduna', 'Zaria', 'Katsina', 'Sokoto', 'Birnin Kebbi', 'Gusau', 'Dutse', 'Hadejia', 'Azare'],
+      'Rivers': ['Port Harcourt', 'Obio-Akpor', 'Okrika', 'Ogu–Bolo', 'Eleme', 'Tai', 'Gokana', 'Khana', 'Oyigbo', 'Omuma']
+    }
+  },
+  'Democratic Republic of Congo': {
+    states: {
+      'Kinshasa': ['Kinshasa', 'Lubumbashi', 'Mbuji-Mayi', 'Kisangani', 'Masina', 'Kananga', 'Likasi', 'Kolwezi', 'Tshikapa', 'Beni'],
+      'Katanga': ['Lubumbashi', 'Likasi', 'Kolwezi', 'Kamina', 'Kipushi', 'Kambove', 'Fungurume', 'Dilolo', 'Sakania', 'Pweto'],
+      'Kasai': ['Mbuji-Mayi', 'Kananga', 'Tshikapa', 'Mwene-Ditu', 'Luebo', 'Demba', 'Luiza', 'Dibaya', 'Kazumba', 'Kamonia']
+    }
+  },
+  'South Africa': {
+    states: {
+      'Gauteng': ['Johannesburg', 'Cape Town', 'Durban', 'Pretoria', 'Soweto', 'Benoni', 'Tembisa', 'Kempton Park', 'Boksburg', 'Klerksdorp'],
+      'Western Cape': ['Cape Town', 'George', 'Mossel Bay', 'Hermanus', 'Stellenbosch', 'Paarl', 'Worcester', 'Oudtshoorn', 'Swellendam', 'Caledon'],
+      'KwaZulu-Natal': ['Durban', 'Pietermaritzburg', 'Newcastle', 'Ladysmith', 'Vryheid', 'Estcourt', 'Kokstad', 'Dundee', 'Greytown', 'Ixopo']
+    }
+  },
+  'Morocco': {
+    states: {
+      'Casablanca-Settat': ['Casablanca', 'Rabat', 'Fès', 'Marrakech', 'Agadir', 'Tangier', 'Kenitra', 'Tetouan', 'Safi', 'Mohammedia'],
+      'Rabat-Salé-Kénitra': ['Rabat', 'Salé', 'Kenitra', 'Khemisset', 'Sidi Kacem', 'Sidi Slimane', 'Temara', 'Skhirate', 'Bouknadel', 'Harhoura'],
+      'Fès-Meknès': ['Fès', 'Meknès', 'Taza', 'Ifrane', 'Azrou', 'Sefrou', 'Khénifra', 'Khenifra', 'El Hajeb', 'Moulay Yacoub']
+    }
+  },
+  'Ethiopia': {
+    states: {
+      'Addis Ababa': ['Addis Ababa', 'Dire Dawa', 'Mekelle', 'Adama', 'Awassa', 'Bahir Dar', 'Jimma', 'Jijiga', 'Shashamane', 'Bishoftu'],
+      'Oromia': ['Adama', 'Jimma', 'Bishoftu', 'Shashamane', 'Ambo', 'Nekemte', 'Harar', 'Dire Dawa', 'Asella', 'Robe'],
+      'Amhara': ['Bahir Dar', 'Gondar', 'Dessie', 'Kombolcha', 'Debre Birhan', 'Woldiya', 'Lalibela', 'Debre Tabor', 'Finote Selam', 'Kemise']
+    }
+  },
+  'Kenya': {
+    states: {
+      'Nairobi': ['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Thika', 'Malindi', 'Kitale', 'Garissa', 'Kakamega'],
+      'Mombasa': ['Mombasa', 'Malindi', 'Kilifi', 'Watamu', 'Lamu', 'Diani', 'Msambweni', 'Ukunda', 'Kwale', 'Voi'],
+      'Kisumu': ['Kisumu', 'Kakamega', 'Busia', 'Siaya', 'Homa Bay', 'Migori', 'Kericho', 'Bomet', 'Nyamira', 'Kisii']
+    }
+  },
+  'Ghana': {
+    states: {
+      'Greater Accra': ['Accra', 'Kumasi', 'Tamale', 'Cape Coast', 'Sekondi-Takoradi', 'Obuasi', 'Medina Estates', 'Koforidua', 'Wa', 'Sunyani'],
+      'Ashanti': ['Kumasi', 'Obuasi', 'Ejisu', 'Mampong', 'Konongo', 'Bekwai', 'Ofinso', 'Agogo', 'Juaso', 'Manso'],
+      'Northern': ['Tamale', 'Yendi', 'Savelugu', 'Gushegu', 'Karaga', 'Tolon', 'Kumbungu', 'Sagnarigu', 'Zabzugu', 'Tatale']
+    }
+  },
+  'Algeria': {
+    states: {
+      'Algiers': ['Algiers', 'Oran', 'Constantine', 'Annaba', 'Blida', 'Batna', 'Djelfa', 'Sétif', 'Sidi Bel Abbès', 'Biskra'],
+      'Oran': ['Oran', 'Sidi Bel Abbès', 'Tlemcen', 'Mostaganem', 'Relizane', 'Mascara', 'Saïda', 'Tiaret', 'Chlef', 'Ain Temouchent'],
+      'Constantine': ['Constantine', 'Annaba', 'Sétif', 'Batna', 'Skikda', 'Jijel', 'Guelma', 'Souk Ahras', 'Tébessa', 'Khenchela']
+    }
+  },
+  'Brazil': {
+    states: {
+      'São Paulo': ['São Paulo', 'Guarulhos', 'Campinas', 'São Bernardo do Campo', 'Santo André', 'Osasco', 'Ribeirão Preto', 'Sorocaba', 'Mauá', 'São José dos Campos'],
+      'Rio de Janeiro': ['Rio de Janeiro', 'São Gonçalo', 'Duque de Caxias', 'Nova Iguaçu', 'Niterói', 'Campos dos Goytacazes', 'Belford Roxo', 'São João de Meriti', 'Petrópolis', 'Volta Redonda'],
+      'Minas Gerais': ['Belo Horizonte', 'Uberlândia', 'Contagem', 'Juiz de Fora', 'Betim', 'Montes Claros', 'Ribeirão das Neves', 'Uberaba', 'Governador Valadares', 'Ipatinga']
+    }
+  },
+  'Argentina': {
+    states: {
+      'Buenos Aires': ['Buenos Aires', 'La Plata', 'Mar del Plata', 'Bahía Blanca', 'Tandil', 'San Nicolás', 'Pergamino', 'Olavarría', 'Junín', 'Azul'],
+      'Córdoba': ['Córdoba', 'Río Cuarto', 'Villa María', 'San Francisco', 'Villa Carlos Paz', 'Río Tercero', 'Bell Ville', 'Marcos Juárez', 'Cruz del Eje', 'La Falda'],
+      'Santa Fe': ['Rosario', 'Santa Fe', 'Rafaela', 'Venado Tuerto', 'Reconquista', 'Esperanza', 'Gálvez', 'Villa Gobernador Gálvez', 'Casilda', 'Cañada de Gómez']
+    }
+  },
+  'Peru': {
+    states: {
+      'Lima': ['Lima', 'Callao', 'Arequipa', 'Trujillo', 'Chiclayo', 'Huancayo', 'Piura', 'Iquitos', 'Cusco', 'Chimbote'],
+      'Arequipa': ['Arequipa', 'Camaná', 'Mollendo', 'Aplao', 'Chivay', 'Cotahuasi', 'Islay', 'La Joya', 'Majes', 'Ocoña'],
+      'La Libertad': ['Trujillo', 'Chepén', 'Pacasmayo', 'Guadalupe', 'Casa Grande', 'Cartavio', 'Paiján', 'Razuri', 'Santiago de Cao', 'Ascope']
+    }
+  },
+  'Colombia': {
+    states: {
+      'Bogotá': ['Bogotá', 'Medellín', 'Cali', 'Barranquilla', 'Cartagena', 'Cúcuta', 'Bucaramanga', 'Pereira', 'Santa Marta', 'Ibagué'],
+      'Antioquia': ['Medellín', 'Bello', 'Itagüí', 'Envigado', 'Apartadó', 'Turbo', 'Rionegro', 'Sabaneta', 'La Estrella', 'Copacabana'],
+      'Valle del Cauca': ['Cali', 'Palmira', 'Buenaventura', 'Tuluá', 'Cartago', 'Buga', 'Jamundí', 'Yumbo', 'Candelaria', 'Florida']
+    }
+  },
+  'Chile': {
+    states: {
+      'Santiago': ['Santiago', 'Puente Alto', 'Antofagasta', 'Viña del Mar', 'Valparaíso', 'Talcahuano', 'San Bernardo', 'Temuco', 'Iquique', 'Concepción'],
+      'Valparaíso': ['Valparaíso', 'Viña del Mar', 'Villa Alemana', 'Quilpué', 'San Antonio', 'Quillota', 'Limache', 'Los Andes', 'Casablanca', 'Quintero'],
+      'Biobío': ['Concepción', 'Talcahuano', 'Chillán', 'Los Ángeles', 'Coronel', 'San Pedro de la Paz', 'Talca', 'Temuco', 'Hualpén', 'Tomé']
+    }
+  },
+  'Venezuela': {
+    states: {
+      'Capital': ['Caracas', 'Maracaibo', 'Valencia', 'Barquisimeto', 'Maracay', 'Ciudad Guayana', 'San Cristóbal', 'Maturín', 'Ciudad Bolívar', 'Cumana'],
+      'Zulia': ['Maracaibo', 'San Francisco', 'Cabimas', 'Ciudad Ojeda', 'Punto Fijo', 'Los Puertos de Altagracia', 'Santa Rita', 'Villa del Rosario', 'La Concepción', 'Machiques'],
+      'Carabobo': ['Valencia', 'Maracay', 'Puerto Cabello', 'Guacara', 'Los Guayos', 'San Diego', 'Naguanagua', 'San Joaquín', 'Mariara', 'Morón']
+    }
+  },
+  'New Zealand': {
+    states: {
+      'North Island': ['Auckland', 'Wellington', 'Hamilton', 'Tauranga', 'Lower Hutt', 'Dunedin', 'Palmerston North', 'Hastings', 'Napier', 'Rotorua'],
+      'South Island': ['Christchurch', 'Dunedin', 'Invercargill', 'Nelson', 'Timaru', 'Blenheim', 'Ashburton', 'Greymouth', 'Wanaka', 'Queenstown'],
+      'Auckland': ['Auckland', 'North Shore', 'Waitakere', 'Manukau', 'Papakura', 'Franklin', 'Rodney', 'Great Barrier Island', 'Waiheke Island', 'Rangitoto Island']
+    }
+  }
+}
+
+// Mock AQI data generator
+const generateMockAQI = () => Math.floor(Math.random() * 300) + 1
+
+interface CityData {
+  name: string
+  state: string
+  aqi: number
+  status: string
+  color: string
+  bgClass: string
+}
+
+export default function Dashboard() {
+  const [selectedCountry, setSelectedCountry] = useState<string>('')
+  const [selectedState, setSelectedState] = useState<string>('')
+  const [selectedCities, setSelectedCities] = useState<string[]>([])
+  const [monitoredCitiesData, setMonitoredCitiesData] = useState<CityData[]>([])
+  const [countryData, setCountryData] = useState<CityData[]>([])
+  const [stateData, setStateData] = useState<CityData[]>([])
+  const [loading, setLoading] = useState(false)
+
+  // Auto-refresh monitored cities data every 30 seconds
+  useEffect(() => {
+    if (monitoredCitiesData.length > 0) {
+      const interval = setInterval(() => {
+        setMonitoredCitiesData(prev => 
+          prev.map(city => {
+            const newAqi = generateMockAQI()
+            const updatedAQI = getAQIStatus(newAqi)
+            return { ...city, aqi: newAqi, ...updatedAQI }
+          })
+        )
+      }, 30000) // Refresh every 30 seconds
+
+      return () => clearInterval(interval)
+    }
+  }, [monitoredCitiesData.length])
+
+  const getAQIStatus = (aqi: number) => {
+    if (aqi <= 50) return { status: 'Good', color: '#10b981', bgClass: 'bg-emerald-500/20 text-emerald-400' }
+    if (aqi <= 100) return { status: 'Moderate', color: '#22c55e', bgClass: 'bg-green-500/20 text-green-400' }
+    if (aqi <= 150) return { status: 'Unhealthy for Sensitive', color: '#f97316', bgClass: 'bg-orange-500/20 text-orange-400' }
+    if (aqi <= 200) return { status: 'Unhealthy', color: '#ef4444', bgClass: 'bg-red-500/20 text-red-400' }
+    return { status: 'Very Unhealthy', color: '#dc2626', bgClass: 'bg-red-600/20 text-red-300' }
+  }
+
+  const generateCountryData = (country: string) => {
+    const countryInfo = COUNTRIES[country as keyof typeof COUNTRIES]
+    if (!countryInfo) return []
+
+    const allCities: CityData[] = []
+    Object.entries(countryInfo.states).forEach(([state, cities]) => {
+      (cities as string[]).forEach((city: string) => {
+        const aqi = generateMockAQI()
+        const aqiInfo = getAQIStatus(aqi)
+        allCities.push({
+          name: city,
+          state,
+          aqi,
+          ...aqiInfo
+        })
+      })
+    })
+
+    return allCities.sort((a: CityData, b: CityData) => a.aqi - b.aqi)
+  }
+
+  const generateStateData = (country: string, state: string) => {
+    const countryInfo = COUNTRIES[country as keyof typeof COUNTRIES]
+    if (!countryInfo || !(countryInfo.states as any)[state]) return []
+
+    const cities = (countryInfo.states as any)[state] as string[]
+    return cities.map((city: string) => {
+      const aqi = generateMockAQI()
+      const aqiInfo = getAQIStatus(aqi)
+      return {
+        name: city,
+        state,
+        aqi,
+        ...aqiInfo
+      }
+    }).sort((a: CityData, b: CityData) => a.aqi - b.aqi)
+  }
+
+  const handleCountrySelect = async (country: string) => {
+    if (!country) {
+      setCountryData([])
+      setSelectedState('')
+      setStateData([])
+      return
+    }
+
+    setLoading(true)
+    setSelectedCountry(country)
+    setSelectedState('')
+    setStateData([])
+    
+    // Simulate API delay
+    setTimeout(() => {
+      const data = generateCountryData(country)
+      setCountryData(data)
+      setLoading(false)
+    }, 800)
+  }
+
+  const handleStateSelect = async (state: string) => {
+    if (!state || !selectedCountry) {
+      setStateData([])
+      return
+    }
+
+    setLoading(true)
+    setSelectedState(state)
+    
+    // Simulate API delay
+    setTimeout(() => {
+      const data = generateStateData(selectedCountry, state)
+      setStateData(data)
+      setLoading(false)
+    }, 500)
+  }
+
+  const addCityToMonitor = (city: CityData) => {
+    if (!selectedCities.includes(city.name)) {
+      setSelectedCities([...selectedCities, city.name])
+      // Add city with updated live data
+      const liveCity = {
+        ...city,
+        aqi: generateMockAQI(),
+      }
+      const updatedAQI = getAQIStatus(liveCity.aqi)
+      setMonitoredCitiesData([...monitoredCitiesData, { ...liveCity, ...updatedAQI }])
+    }
+  }
+
+  const removeCityFromMonitor = (cityName: string) => {
+    setSelectedCities(selectedCities.filter(city => city !== cityName))
+    setMonitoredCitiesData(monitoredCitiesData.filter(city => city.name !== cityName))
+  }
+
+  const topCleanCities = countryData.slice(0, 10)
+  const topPollutedCities = countryData.slice(-10).reverse()
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-[#0a0a0f] via-[#1a1a2e] to-[#16213e]">
+      <Navbar currentPage="dashboard" />
+      <div className="pt-20 px-5">
+        <div className="container max-w-[1400px] mx-auto">
+          <div className="text-center mb-12">
+            <h1 className="text-4xl md:text-5xl font-bold gradient-text mb-6">
+              Interactive Air Quality Dashboard
+            </h1>
+            <p className="text-xl text-white/70 max-w-[700px] mx-auto">
+              Explore air quality data by country, state, and city. Monitor multiple locations and get real-time insights.
+            </p>
+          </div>
+
+          {/* Control Panel */}
+          <div className="glass-effect rounded-2xl p-8 mb-8">
+            <h3 className="text-2xl font-bold text-white mb-6">Select Location</h3>
+            <div className="grid md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-white/80 mb-2">Country</label>
+                <select
+                  value={selectedCountry}
+                  onChange={(e) => handleCountrySelect(e.target.value)}
+                  className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:border-[#00d4ff] focus:outline-none"
+                >
+                  <option value="">Select a country</option>
+                  {Object.keys(COUNTRIES).map(country => (
+                    <option key={country} value={country} className="bg-gray-900">{country}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-white/80 mb-2">State/Province</label>
+                <select
+                  value={selectedState}
+                  onChange={(e) => handleStateSelect(e.target.value)}
+                  disabled={!selectedCountry}
+                  className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:border-[#00d4ff] focus:outline-none disabled:opacity-50"
+                >
+                  <option value="">Select a state</option>
+                  {selectedCountry && COUNTRIES[selectedCountry as keyof typeof COUNTRIES] && 
+                    Object.keys(COUNTRIES[selectedCountry as keyof typeof COUNTRIES].states).map(state => (
+                      <option key={state} value={state} className="bg-gray-900">{state}</option>
+                    ))
+                  }
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Monitored Cities with Live Data */}
+          {monitoredCitiesData.length > 0 && (
+            <div className="glass-effect rounded-2xl p-8 mb-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <span className="animate-pulse">🔴</span> Your Monitored Cities - Live Data
+                </h3>
+                <button
+                  onClick={() => {
+                    setMonitoredCitiesData(prev => 
+                      prev.map(city => {
+                        const newAqi = generateMockAQI()
+                        const updatedAQI = getAQIStatus(newAqi)
+                        return { ...city, aqi: newAqi, ...updatedAQI }
+                      })
+                    )
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-[#00d4ff]/20 border border-[#00d4ff]/30 rounded-full text-[#00d4ff] hover:bg-[#00d4ff]/30 transition-all duration-300"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh Data
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {monitoredCitiesData.map(city => (
+                  <div key={city.name} className="glass-effect rounded-xl p-6 hover:scale-105 transition-all duration-300">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h4 className="text-lg font-bold text-white">{city.name}</h4>
+                        <p className="text-white/60 text-sm">{city.state}</p>
+                      </div>
+                      <button
+                        onClick={() => removeCityFromMonitor(city.name)}
+                        className="text-red-400 hover:text-red-300 text-xl"
+                        title="Remove from monitoring"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="text-center">
+                      <div className={`text-4xl font-bold mb-2 ${city.bgClass}`}>
+                        {city.aqi}
+                      </div>
+                      <div className={`text-sm font-semibold ${city.bgClass}`}>
+                        {city.status}
+                      </div>
+                      <div className="mt-3 text-xs text-white/60">
+                        Last updated: {new Date().toLocaleTimeString()}
+                      </div>
+                    </div>
+                    <div className="mt-4 h-2 bg-white/10 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-green-500 via-yellow-500 to-red-500 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min((city.aqi / 300) * 100, 100)}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {loading && (
+            <div className="glass-effect rounded-2xl p-8 mb-8 text-center">
+              <div className="animate-spin w-8 h-8 border-2 border-[#00d4ff] border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-white/70">Loading air quality data...</p>
+            </div>
+          )}
+
+          {/* Country Overview */}
+          {selectedCountry && countryData.length > 0 && !loading && (
+            <div className="mb-8">
+              <h3 className="text-3xl font-bold text-white mb-8">Air Quality Overview: {selectedCountry}</h3>
+              
+              {/* Statistics Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+                <div className="glass-effect rounded-2xl p-6 text-center">
+                  <div className="text-3xl font-bold text-[#00d4ff] mb-2">{countryData.length}</div>
+                  <div className="text-white/70 text-sm">Total Cities</div>
+                </div>
+                <div className="glass-effect rounded-2xl p-6 text-center">
+                  <div className="text-3xl font-bold text-[#22c55e] mb-2">
+                    {Math.round(countryData.reduce((sum, city) => sum + city.aqi, 0) / countryData.length)}
+                  </div>
+                  <div className="text-white/70 text-sm">Average AQI</div>
+                </div>
+                <div className="glass-effect rounded-2xl p-6 text-center">
+                  <div className="text-3xl font-bold text-[#10b981] mb-2">
+                    {countryData.filter(city => city.aqi <= 100).length}
+                  </div>
+                  <div className="text-white/70 text-sm">Good Air Quality</div>
+                </div>
+                <div className="glass-effect rounded-2xl p-6 text-center">
+                  <div className="text-3xl font-bold text-[#ef4444] mb-2">
+                    {countryData.filter(city => city.aqi > 150).length}
+                  </div>
+                  <div className="text-white/70 text-sm">Poor Air Quality</div>
+                </div>
+              </div>
+
+              {/* Top Cities */}
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="glass-effect rounded-2xl p-8">
+                  <h4 className="text-xl font-bold text-green-400 mb-6 flex items-center gap-2">
+                    🌟 Top 10 Cleanest Cities
+                  </h4>
+                  <div className="space-y-3">
+                    {topCleanCities.map((city, index) => (
+                      <div key={city.name} className="flex items-center justify-between p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-all duration-300">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center text-green-400 font-bold text-sm">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <div className="text-white font-medium">{city.name}</div>
+                            <div className="text-white/60 text-sm">{city.state}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className={`px-3 py-1 rounded-full text-xs font-semibold ${city.bgClass}`}>
+                            {city.aqi}
+                          </div>
+                          <button
+                            onClick={() => addCityToMonitor(city)}
+                            className="text-[#00d4ff] hover:text-[#00d4ff]/80 text-sm"
+                          >
+                            + Monitor
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="glass-effect rounded-2xl p-8">
+                  <h4 className="text-xl font-bold text-red-400 mb-6 flex items-center gap-2">
+                    ⚠️ Top 10 Most Polluted Cities
+                  </h4>
+                  <div className="space-y-3">
+                    {topPollutedCities.map((city, index) => (
+                      <div key={city.name} className="flex items-center justify-between p-3 bg-white/5 rounded-lg hover:bg-white/10 transition-all duration-300">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-red-400 font-bold text-sm">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <div className="text-white font-medium">{city.name}</div>
+                            <div className="text-white/60 text-sm">{city.state}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className={`px-3 py-1 rounded-full text-xs font-semibold ${city.bgClass}`}>
+                            {city.aqi}
+                          </div>
+                          <button
+                            onClick={() => addCityToMonitor(city)}
+                            className="text-[#00d4ff] hover:text-[#00d4ff]/80 text-sm"
+                          >
+                            + Monitor
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* State Data */}
+          {selectedState && stateData.length > 0 && !loading && (
+            <div className="mb-8">
+              <h3 className="text-2xl font-bold text-white mb-6">
+                Cities in {selectedState}, {selectedCountry}
+              </h3>
+              <div className="glass-effect rounded-2xl p-8">
+                <div className="grid gap-4">
+                  {stateData.map((city, index) => (
+                    <div key={city.name} className="flex items-center justify-between p-4 bg-white/5 rounded-lg hover:bg-white/10 transition-all duration-300">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-[#00d4ff]/20 flex items-center justify-center text-[#00d4ff] font-bold">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <div className="text-white font-medium text-lg">{city.name}</div>
+                          <div className="text-white/60">AQI: {city.aqi} - {city.status}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className={`px-4 py-2 rounded-full font-semibold ${city.bgClass}`}>
+                          {city.aqi}
+                        </div>
+                        <button
+                          onClick={() => addCityToMonitor(city)}
+                          className="bg-[#00d4ff] hover:bg-[#00d4ff]/80 px-4 py-2 rounded-lg text-white text-sm font-medium transition-all duration-300"
+                        >
+                          + Monitor
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Default State */}
+          {!selectedCountry && (
+            <div className="glass-effect rounded-2xl p-12 text-center">
+              <div className="text-6xl mb-6 text-blue-400 font-bold">WORLD</div>
+              <h3 className="text-2xl font-bold text-white mb-4">Select a Country to Get Started</h3>
+              <p className="text-white/70 mb-8">Choose a country from the dropdown above to explore air quality data and monitor cities of your choice.</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+                <div className="p-6 bg-white/5 rounded-xl">
+                  <div className="text-[#00d4ff] text-3xl font-bold mb-2">CITIES</div>
+                  <div className="text-white font-semibold mb-2">Multiple Countries</div>
+                  <div className="text-white/60 text-sm">Monitor air quality across US, India, China, UK, and Canada</div>
+                </div>
+                <div className="p-6 bg-white/5 rounded-xl">
+                  <div className="text-[#00d4ff] text-3xl font-bold mb-2">DATA</div>
+                  <div className="text-white font-semibold mb-2">Real-time Data</div>
+                  <div className="text-white/60 text-sm">Get live air quality index and pollutant information</div>
+                </div>
+                <div className="p-6 bg-white/5 rounded-xl">
+                  <div className="text-[#00d4ff] text-3xl font-bold mb-2">RANKS</div>
+                  <div className="text-white font-semibold mb-2">Smart Rankings</div>
+                  <div className="text-white/60 text-sm">View top clean and most polluted cities instantly</div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <Footer />
+    </div>
+  )
+}

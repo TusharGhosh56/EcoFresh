@@ -180,6 +180,11 @@ class ExportService {
       console.log('Attempting advanced html2canvas capture...');
       const targetElement = svgElement || canvasElement || chartElement;
       
+      // Ensure targetElement is HTMLElement for html2canvas
+      if (!(targetElement instanceof HTMLElement)) {
+        throw new Error('Target element is not an HTMLElement');
+      }
+      
       const canvas = await html2canvas(targetElement, {
         backgroundColor: '#1a1a1a',
         scale: 1,

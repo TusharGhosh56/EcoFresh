@@ -123,8 +123,7 @@ class ExportService {
   // Export comprehensive PDF with chart and AI report (HTML window method)
   async exportComprehensivePDF(
     data: ExportData, 
-    chartElementId: string, 
-    filename?: string
+    chartElementId: string
   ): Promise<void> {
     try {
       const { chartData, chartType, metric, cities, timeRange, analysis, aiReport } = data;
@@ -430,7 +429,7 @@ class ExportService {
       
       // Export PDF (if analysis available)
       if (data.analysis || data.aiReport) {
-        await this.exportComprehensivePDF(data, chartElementId, `${filename}-report.pdf`);
+        await this.exportComprehensivePDF(data, chartElementId);
       }
       
       console.log('All exports completed successfully');

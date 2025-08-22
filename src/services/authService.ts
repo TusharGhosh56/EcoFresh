@@ -1,5 +1,5 @@
 import { auth, signUpWithEmail, signInWithEmail } from './firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
 
 interface UserData {
@@ -51,4 +51,18 @@ export const loginUser = async (email: string, password: string): Promise<boolea
 
 export const getCurrentUser = () => {
   return auth.currentUser;
+};
+
+// Get user profile data from Firestore
+export const getUserProfile = async (uid: string) => {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    if (userDoc.exists()) {
+      return userDoc.data();
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting user profile:', error);
+    return null;
+  }
 };

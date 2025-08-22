@@ -250,7 +250,7 @@ export const useSmartAirQuality = () => {
       const result = await loadCityOnDemand(city.name)
       if (result) {
         // Track user interaction
-        priorityManager.trackCountrySelection(city.name, countryName)
+        priorityManager.trackCountrySelection(countryName)
       }
 
       await new Promise(resolve => setTimeout(resolve, 300))

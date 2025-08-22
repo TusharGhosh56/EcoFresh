@@ -1,6 +1,19 @@
 import { useState } from 'react'
 import Navbar from './Navbar'
 
+interface UserData {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  loginTime: string
+}
+
+interface AboutProps {
+  userData?: UserData | null
+  onLogout?: () => void
+}
+
 interface TeamMember {
   id: string
   name: string
@@ -12,78 +25,42 @@ interface TeamMember {
 
 
 
-export default function About() {
+export default function About({ userData, onLogout }: AboutProps) {
   const [activeSection, setActiveSection] = useState('mission')
-  const [showJoinModal, setShowJoinModal] = useState(false)
-  const [showDonationModal, setShowDonationModal] = useState(false)
-  const [joinForm, setJoinForm] = useState({
-    name: '',
-    email: '',
-    location: '',
-    interests: [] as string[]
-  })
-  const [donationAmount, setDonationAmount] = useState('25')
-
-  // const navigateTo = (hash: string) => {
-  //   if (hash === '') {
-  //     window.location.hash = ''
-  //   } else {
-  //     window.location.hash = hash
-  //   }
-  // }
-
-  const communityStats: CommunityStats = {
-    members: '125,000+',
-    cities: '500+',
-    countries: '45',
-    reports: '1M+'
-  }
 
   const teamMembers: TeamMember[] = [
     {
       id: '1',
-      name: 'Dr. Sarah Chen',
-      role: 'Founder & Environmental Scientist',
-      bio: 'Leading researcher in atmospheric science with 15+ years of experience in air quality monitoring.',
+      name: 'Anosh Sibi',
+      role: '2447211',
+      bio: 'Passionate about technology and innovation.',
       imageUrl: 'https://picsum.photos/300/300?random=1',
-      expertise: ['Air Quality Research', 'Environmental Policy', 'Data Science']
+      expertise: ['Full Stack Developer', 'UI/UX Designer', 'Data Science']
     },
     {
       id: '2',
-      name: 'Michael Rodriguez',
-      role: 'CTO & Data Engineer',
+      name: 'Thushar Ghosh',
+      role: '24472',
       bio: 'Expert in real-time data processing and IoT sensor networks for environmental monitoring.',
       imageUrl: 'https://picsum.photos/300/300?random=2',
       expertise: ['IoT Systems', 'Real-time Analytics', 'Machine Learning']
     },
     {
       id: '3',
-      name: 'Dr. Emily Johnson',
-      role: 'Health Impact Researcher',
-      bio: 'Public health specialist focusing on the correlation between air quality and community health.',
+      name: 'Agno C Benny',
+      role: '2447204',
+      bio: 'Adept in backend development and data science.',
       imageUrl: 'https://picsum.photos/300/300?random=3',
-      expertise: ['Public Health', 'Epidemiology', 'Community Outreach']
-    },
-    {
-      id: '4',
-      name: 'David Kim',
-      role: 'Community Manager',
-      bio: 'Passionate about building communities and driving environmental awareness initiatives.',
-      imageUrl: 'https://picsum.photos/300/300?random=4',
-      expertise: ['Community Building', 'Environmental Advocacy', 'Social Media']
+      expertise: ['Backend Developer', 'Data Science', 'Web Developer']
     }
   ]
-
-
-
-
-
-
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-green-900">
       <Navbar 
         currentPage="about" 
+        onLogout={onLogout}
+        userEmail={userData?.email}
       />
 
       {/* Hero Section */}
@@ -164,20 +141,20 @@ export default function About() {
           {activeSection === 'team' && (
             <div className="bg-black/30 rounded-2xl p-8 border border-white/10">
               <h2 className="text-3xl font-bold text-white mb-8 text-center">Meet Our Team</h2>
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
                 {teamMembers.map(member => (
                   <div key={member.id} className="bg-white/10 rounded-xl p-6 border border-white/20 hover:border-white/40 transition-all duration-300 hover:transform hover:scale-105">
                     <img 
                       src={member.imageUrl} 
                       alt={member.name}
-                      className="w-20 h-20 rounded-full mx-auto mb-4 object-cover"
+                      className="w-24 h-24 rounded-full mx-auto mb-4 object-cover"
                     />
-                    <h3 className="text-lg font-semibold text-white text-center mb-1">{member.name}</h3>
-                    <p className="text-blue-400 text-sm text-center mb-3">{member.role}</p>
-                    <p className="text-gray-300 text-sm mb-4 leading-relaxed">{member.bio}</p>
-                    <div className="flex flex-wrap gap-1 justify-center">
+                    <h3 className="text-xl font-semibold text-white text-center mb-2">{member.name}</h3>
+                    <p className="text-blue-400 text-sm text-center mb-3 font-mono">{member.role}</p>
+                    <p className="text-gray-300 text-sm mb-4 leading-relaxed text-center">{member.bio}</p>
+                    <div className="flex flex-wrap gap-2 justify-center">
                       {member.expertise.map(skill => (
-                        <span key={skill} className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded text-xs">
+                        <span key={skill} className="bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full text-xs font-medium">
                           {skill}
                         </span>
                       ))}
@@ -187,14 +164,8 @@ export default function About() {
               </div>
             </div>
           )}
-
-
-
-
         </div>
       </section>
-
-
     </div>
   )
 }

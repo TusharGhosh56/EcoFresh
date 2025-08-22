@@ -4,6 +4,19 @@ import EnhancedExportPanel from './EnhancedExportPanel'
 import Navbar from './Navbar'
 import type { AnalysisResponse } from '../services/geminiAI'
 
+interface UserData {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  loginTime: string
+}
+
+interface AnalyticsProps {
+  userData?: UserData | null
+  onLogout?: () => void
+}
+
 // Chart type options
 const CHART_TYPES = [
   { id: 'line', name: 'Line Chart', icon: '📈' },
@@ -143,7 +156,7 @@ const LOCATIONS = {
   }
 }
 
-export default function Analytics() {
+export default function Analytics({ userData, onLogout }: AnalyticsProps) {
   // Remove unused destructured variables from useAirQuality hook
   const [selectedCountry, setSelectedCountry] = useState('')
   const [selectedState, setSelectedState] = useState('')
@@ -1430,7 +1443,11 @@ export default function Analytics() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
-      <Navbar currentPage="analytics" />
+              <Navbar 
+          currentPage="analytics" 
+          onLogout={onLogout}
+          userEmail={userData?.email}
+        />
 
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}

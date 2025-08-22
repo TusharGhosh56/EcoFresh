@@ -22,34 +22,27 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userData, setUserData] = useState<UserData | null>(null)
 
-  const [currentView, setCurrentView] = useState<'main' | 'dashboard' | 'analytics' | 'news' | 'about' | 'splash'>('main')
+  const [currentView, setCurrentView] = useState<'main' | 'dashboard' | 'analytics' | 'news' | 'about' | 'splash'>('splash')
   const [showSplash, setShowSplash] = useState(false)
   const [splashFadeOut, setSplashFadeOut] = useState(false)
   const [barOpacity, setBarOpacity] = useState(0)
   const [barWidth, setBarWidth] = useState(0)
+  const [splashInitialized, setSplashInitialized] = useState(false)
 
-  // Check if this is a page reload vs navigation
+  // Initialize splash screen only once
   useEffect(() => {
-    setShowSplash(false)
-    setSplashFadeOut(false)
-    setBarOpacity(0)
-    setBarWidth(0)
-
-    // Detect true landing (no hash, direct visit)
-    const isLanding = window.location.hash === '' || window.location.hash === '#';
-    // If landing, clear splash flag to force splash
-    if (isLanding) {
-      sessionStorage.removeItem('splash-shown');
-    }
-
+    if (splashInitialized) return;
+    
     const splashShown = sessionStorage.getItem('splash-shown') === 'true';
     const navigationEntries = performance.getEntriesByType('navigation');
     let isPageReload = false;
+    
     if (navigationEntries.length > 0) {
       const navigationType = (navigationEntries[0] as PerformanceNavigationTiming).type;
       isPageReload = navigationType === 'reload';
     }
-    // Show splash if first landing (no flag) OR page reload
+    
+    // Show splash only if never shown before OR on page reload
     if (!splashShown || isPageReload) {
       setShowSplash(true);
       sessionStorage.setItem('splash-shown', 'true');
@@ -63,19 +56,26 @@ function App() {
         }, 500);
         return () => clearTimeout(barWidthTimer);
       }, 2000);
+      
       const splashTimer = setTimeout(() => {
         setSplashFadeOut(true);
         setTimeout(() => {
           setShowSplash(false);
-          setCurrentView('main');
+          setSplashInitialized(true);
+          // After splash completes, we'll let other effects handle the view
         }, 800);
       }, 4500);
+      
       return () => {
         clearTimeout(barOpacityTimer);
         clearTimeout(splashTimer);
       };
+    } else {
+      // Splash already shown, skip it
+      setSplashInitialized(true);
+      setCurrentView('main');
     }
-  }, [])
+  }, [splashInitialized])
 
   const handleSkipSplash = () => {
     if (showSplash && !splashFadeOut) {
@@ -162,7 +162,8 @@ function App() {
 
   // Handle navigation
   useEffect(() => {
-    if (!isAuthenticated) return
+    // Only handle navigation when splash is initialized and user is authenticated
+    if (!splashInitialized || !isAuthenticated) return;
 
     const handleHashChange = () => {
       const hash = window.location.hash
@@ -171,8 +172,8 @@ function App() {
       } else if (hash === '#analytics') {
         setCurrentView('analytics')
       } else if (hash === '#news') {
-        setCurrentView('news'
-        )} else if (hash === '#about') {
+        setCurrentView('news')
+      } else if (hash === '#about') {
         setCurrentView('about')
       } else {
         setCurrentView('main')
@@ -182,33 +183,35 @@ function App() {
     handleHashChange()
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
-  }, [isAuthenticated])
+  }, [splashInitialized, isAuthenticated])
+
+  // Set initial view after authentication is determined and splash is complete
+  useEffect(() => {
+    if (splashInitialized && isAuthenticated && currentView === 'splash') {
+      // Set initial view based on hash or default to main
+      const hash = window.location.hash
+      if (hash === '#dashboard' || hash === '#dashboard-page') {
+        setCurrentView('dashboard')
+      } else if (hash === '#analytics') {
+        setCurrentView('analytics')
+      } else if (hash === '#news') {
+        setCurrentView('news')
+      } else if (hash === '#about') {
+        setCurrentView('about')
+      } else {
+        setCurrentView('main')
+      }
+    }
+  }, [splashInitialized, isAuthenticated, currentView])
 
   // If not authenticated, show login/signup
   if (!isAuthenticated) {
     return <AuthWrapper onAuthSuccess={handleAuthSuccess} />
   }
 
-  // If authenticated but splash is showing
-
-
-  // Main application after authentication and splash
+  // Main application after authentication
   return (
     <div className="min-h-screen text-white relative">
-      <motion.div
-        key={currentView}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
-        transition={{ duration: 0.5, ease: "easeInOut" }}
-        className="min-h-screen"
-      >
-        {currentView === 'main' && <MainPage userData={userData} onLogout={handleLogout} />}
-        {currentView === 'dashboard' && <Dashboard userData={userData} onLogout={handleLogout} />}
-        {currentView === 'analytics' && <Analytics />}
-        {currentView === 'news' && <News />}
-        {currentView === 'about' && <About />}
-      </motion.div>
       {/* Splash Screen */}
       {showSplash && (
         <div 
@@ -244,7 +247,7 @@ function App() {
                   <div className="text-6xl md:text-6xl sm:text-4xl font-light text-white tracking-[8px] md:tracking-[8px] sm:tracking-[4px] mb-2 opacity-0 animate-logo-fade-in">
                     Eco<span className="font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">Fresh</span>
                   </div>
-                  <div className="text-lg md:text-lg sm:text-base text-white/60 tracking-[3px] md:tracking-[3px] sm:tracking-[2px] uppercase font-normal opacity-0 animate-tagline-fade-in">
+                  <div className="text-lg md:text-lg sm:text-base text-white/60 tracking-[3px] md:tracking-[8px] sm:tracking-[2px] uppercase font-normal opacity-0 animate-tagline-fade-in">
                     Clean Air Intelligence
                   </div>
                 </div>
@@ -290,11 +293,11 @@ function App() {
           transition={{ duration: 0.5, ease: "easeInOut" }}
           className="min-h-screen"
         >
-          {currentView === 'main' && <MainPage />}
-          {currentView === 'dashboard' && <Dashboard />}
-          {currentView === 'analytics' && <Analytics />}
-          {currentView === 'news' && <News />}
-          {currentView === 'about' && <About />}
+          {currentView === 'main' && <MainPage userData={userData} onLogout={handleLogout} />}
+          {currentView === 'dashboard' && <Dashboard userData={userData} onLogout={handleLogout} />}
+          {currentView === 'analytics' && <Analytics userData={userData} onLogout={handleLogout} />}
+          {currentView === 'news' && <News userData={userData} onLogout={handleLogout} />}
+          {currentView === 'about' && <About userData={userData} onLogout={handleLogout} />}
         </motion.div>
       )}
     </div>

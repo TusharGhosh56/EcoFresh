@@ -1,6 +1,19 @@
 import { useEffect, useState } from 'react'
 import Navbar from './Navbar'
 
+interface UserData {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  loginTime: string
+}
+
+interface NewsProps {
+  userData?: UserData | null
+  onLogout?: () => void
+}
+
 // News article interface
 interface NewsArticle {
   id: string
@@ -66,7 +79,7 @@ const STATES_BY_COUNTRY: { [key: string]: { id: string; name: string }[] } = {
   ]
 }
 
-export default function News() {
+export default function News({ userData, onLogout }: NewsProps) {
   const [selectedTimeFilter, setSelectedTimeFilter] = useState('7')
   const [selectedCountry, setSelectedCountry] = useState('all')
   const [selectedState, setSelectedState] = useState('all')
@@ -305,7 +318,11 @@ export default function News() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 text-white">
-      <Navbar currentPage="news" />
+              <Navbar 
+          currentPage="news" 
+          onLogout={onLogout}
+          userEmail={userData?.email}
+        />
 
       <div className="max-w-7xl mx-auto p-6">
         {/* Header */}

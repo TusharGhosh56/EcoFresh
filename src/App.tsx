@@ -9,6 +9,7 @@ import Analytics from './components/Analytics'
 import Dashboard from './components/Dashboard'
 import MainPage from './components/MainPageNew'
 import News from './components/News'
+import Profile from './components/Profile'
 
 interface UserData {
   id: string
@@ -22,7 +23,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userData, setUserData] = useState<UserData | null>(null)
 
-  const [currentView, setCurrentView] = useState<'main' | 'dashboard' | 'analytics' | 'news' | 'about' | 'splash'>('splash')
+  const [currentView, setCurrentView] = useState<'main' | 'dashboard' | 'analytics' | 'news' | 'about' | 'profile' | 'splash'>('splash')
   const [showSplash, setShowSplash] = useState(false)
   const [splashFadeOut, setSplashFadeOut] = useState(false)
   const [barOpacity, setBarOpacity] = useState(0)
@@ -171,6 +172,8 @@ function App() {
         setCurrentView('dashboard')
       } else if (hash === '#analytics') {
         setCurrentView('analytics')
+      } else if (hash === '#profile') {
+        setCurrentView('profile')
       } else if (hash === '#news') {
         setCurrentView('news')
       } else if (hash === '#about') {
@@ -194,6 +197,8 @@ function App() {
         setCurrentView('dashboard')
       } else if (hash === '#analytics') {
         setCurrentView('analytics')
+      } else if (hash === '#profile') {
+        setCurrentView('profile')
       } else if (hash === '#news') {
         setCurrentView('news')
       } else if (hash === '#about') {
@@ -296,6 +301,7 @@ function App() {
           {currentView === 'main' && <MainPage userData={userData} onLogout={handleLogout} />}
           {currentView === 'dashboard' && <Dashboard userData={userData} onLogout={handleLogout} />}
           {currentView === 'analytics' && <Analytics userData={userData} onLogout={handleLogout} />}
+          {currentView === 'profile' && <Profile userData={userData} onLogout={handleLogout} />}
           {currentView === 'news' && <News userData={userData} onLogout={handleLogout} />}
           {currentView === 'about' && <About userData={userData} onLogout={handleLogout} />}
         </motion.div>

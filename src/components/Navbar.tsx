@@ -21,6 +21,7 @@ export default function Navbar({ currentPage = '', onJoinCommunity, onDonate, on
     { id: '', label: 'Home', hash: '' },
     { id: 'dashboard', label: 'Dashboard', hash: '#dashboard' },
     { id: 'analytics', label: 'Analytics', hash: '#analytics' },
+    { id: 'profile', label: 'Profile', hash: '#profile' },
     { id: 'news', label: 'News', hash: '#news' },
     { id: 'about', label: 'About', hash: '#about' }
   ]
@@ -54,7 +55,7 @@ export default function Navbar({ currentPage = '', onJoinCommunity, onDonate, on
                 className={`text-sm font-medium transition-all duration-300 relative ${
                   currentPage === item.id
                     ? 'text-white border-b-2 border-blue-500 pb-1'
-                    : 'text-gray-300 hover:text-white hover:text-[#00d4ff]'
+                    : 'text-gray-300 hover:text-[#00d4ff]'
                 }`}
               >
                 {item.label}

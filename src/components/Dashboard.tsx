@@ -4,8 +4,11 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Navbar from './Navbar'
 import Footer from './Footer'
 import SmartLoadingStatus from './SmartLoadingStatus'
+import Notification from './Notification'
 import { EXPANDED_CITIES } from '../hooks/useAirQuality'
 import { useSmartCountryAirQuality } from '../hooks/useSmartCountryAirQuality'
+import { getUserPinnedCities, saveUserPinnedCities, incrementCityMonitorCount } from '../services/firebase'
+import { useMonitoredCities } from '../services/monitoredCitiesStore'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -193,6 +196,9 @@ export default function Dashboard({ userData, onLogout }: DashboardProps) {
     loadingProgress
   } = useSmartCountryAirQuality()
   
+  // Shared monitored cities store
+  const { updateCitiesData } = useMonitoredCities()
+  
   // Get all loaded cities for compatibility with existing code
   const allCitiesData = getAllLoadedCities()
   const [selectedCountry, setSelectedCountry] = useState<string>('')
@@ -202,6 +208,56 @@ export default function Dashboard({ userData, onLogout }: DashboardProps) {
   const [countryData, setCountryData] = useState<CityData[]>([])
   const [loading, setLoading] = useState(false)
   const [dynamicCountries, setDynamicCountries] = useState<{ [key: string]: { cities: string[], states: string[] } }>(COUNTRIES)
+  
+  // Notification state
+  const [notification, setNotification] = useState<{
+    show: boolean
+    message: string
+    type: 'success' | 'error' | 'info'
+  }>({ show: false, message: '', type: 'info' })
+
+  // Load user's pinned cities on component mount
+  useEffect(() => {
+    const loadPinnedCities = async () => {
+      if (userData?.id) {
+        try {
+          const pinnedCities = await getUserPinnedCities(userData.id)
+          
+          // Convert pinned cities to monitored cities data
+          const pinnedCitiesData = pinnedCities.map(cityName => {
+            // Try to find from loaded API data first
+            const existingCity = allCitiesData.find(city => city.city.includes(cityName))
+            if (existingCity) {
+              return {
+                name: cityName,
+                aqi: existingCity.aqi,
+                status: existingCity.status,
+                coords: {
+                  lat: existingCity.coordinates?.lat || 0,
+                  lng: existingCity.coordinates?.lon || 0
+                }
+              }
+            } else {
+              // Fallback to generated data
+              return generateCityData(cityName, 'Unknown')
+            }
+          }).filter(Boolean) as CityData[]
+          
+          setMonitoredCitiesData(pinnedCitiesData)
+          setSelectedCities(pinnedCities)
+        } catch (error) {
+          console.error('Error loading pinned cities:', error)
+        }
+      }
+    }
+
+    loadPinnedCities()
+  }, [userData?.id, allCitiesData])
+
+  // Update shared store whenever monitored cities data changes
+  useEffect(() => {
+    updateCitiesData(monitoredCitiesData)
+  }, [monitoredCitiesData, updateCitiesData])
 
   // Update dynamic countries when API data changes
   useEffect(() => {
@@ -435,16 +491,41 @@ export default function Dashboard({ userData, onLogout }: DashboardProps) {
   }
 
   // Handle city selection/deselection with smart tracking
-  const handleCitySelection = (cityName: string) => {
+  const handleCitySelection = async (cityName: string) => {
+    if (!userData?.id) return
+
     setSelectedCities(prev => {
       const isSelected = prev.includes(cityName)
       if (isSelected) {
         // Remove city from monitoring
         setMonitoredCitiesData(prevData => prevData.filter(city => city.name !== cityName))
-        return prev.filter(city => city !== cityName)
+        
+        // Update Firebase: remove from pinned cities
+        const updatedCities = prev.filter(city => city !== cityName)
+        saveUserPinnedCities(userData.id, updatedCities).then(() => {
+          setNotification({
+            show: true,
+            message: `${cityName} removed from monitoring`,
+            type: 'info'
+          })
+        }).catch(error => {
+          console.error('Error saving pinned cities:', error)
+          setNotification({
+            show: true,
+            message: 'Failed to save changes',
+            type: 'error'
+          })
+        })
+        
+        return updatedCities
       } else {
         // Track country selection for learning (since we're country-focused now)
         trackCountrySelection(selectedCountry)
+        
+        // Increment monitoring count in Firebase
+        incrementCityMonitorCount(userData.id, cityName).catch(error => {
+          console.error('Error tracking city monitoring:', error)
+        })
         
         // Add city to monitoring - avoid duplicates by checking if already monitored
         setMonitoredCitiesData(prevData => {
@@ -476,13 +557,35 @@ export default function Dashboard({ userData, onLogout }: DashboardProps) {
           }
         })
         
-        return [...prev, cityName]
+        // Update Firebase: add to pinned cities
+        const updatedCities = [...prev, cityName]
+        saveUserPinnedCities(userData.id, updatedCities).then(() => {
+          setNotification({
+            show: true,
+            message: `${cityName} added to monitoring`,
+            type: 'success'
+          })
+        }).catch(error => {
+          console.error('Error saving pinned cities:', error)
+          setNotification({
+            show: true,
+            message: 'Failed to save changes',
+            type: 'error'
+          })
+        })
+        
+        return updatedCities
       }
     })
   }
 
   // Get available countries (dynamically updated)
   const availableCountries = Object.keys(dynamicCountries).sort()
+
+  // Close notification
+  const closeNotification = () => {
+    setNotification(prev => ({ ...prev, show: false }))
+  }
 
   // Initialize animations
   useEffect(() => {
@@ -535,6 +638,14 @@ export default function Dashboard({ userData, onLogout }: DashboardProps) {
         currentPage="dashboard"
         onLogout={onLogout}
         userEmail={userData?.email}
+      />
+      
+      {/* Notification */}
+      <Notification
+        show={notification.show}
+        message={notification.message}
+        type={notification.type}
+        onClose={closeNotification}
       />
       
       {/* Hero Section */}

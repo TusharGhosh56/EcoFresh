@@ -29,3 +29,56 @@ export const signInWithEmail = async (email: string, password: string): Promise<
 };
 
 export { auth, db };
+
+import { doc, getDoc, setDoc } from 'firebase/firestore'
+
+export async function getUserPinnedCities(uid: string): Promise<string[]> {
+  const docRef = doc(db, 'users', uid)
+  const docSnap = await getDoc(docRef)
+  const data = docSnap.exists() ? docSnap.data().pinnedCities || [] : []
+  console.log('Firebase getUserPinnedCities result:', data)
+  return data
+}
+
+export async function saveUserPinnedCities(uid: string, cities: string[]) {
+  const docRef = doc(db, 'users', uid)
+  await setDoc(docRef, { pinnedCities: cities }, { merge: true })
+}
+
+export async function getUserMonitoringStats(uid: string): Promise<{ name: string, count: number }[]> {
+  const docRef = doc(db, 'users', uid)
+  const docSnap = await getDoc(docRef)
+  const data = docSnap.exists() ? docSnap.data().monitoringStats || [] : []
+  console.log('Firebase getUserMonitoringStats result:', data)
+  return data
+}
+
+export async function incrementCityMonitorCount(uid: string, city: string) {
+  const docRef = doc(db, 'users', uid)
+  const docSnap = await getDoc(docRef)
+  const currentStats = docSnap.exists() ? docSnap.data().monitoringStats || [] : []
+  const stats = [...currentStats] // Create a copy to avoid mutating
+  const idx = stats.findIndex((item: { name: string, count: number }) => item.name === city)
+  if (idx >= 0) {
+    stats[idx].count += 1
+  } else {
+    stats.push({ name: city, count: 1 })
+  }
+  await setDoc(docRef, { monitoringStats: stats }, { merge: true })
+}
+
+export async function removeCityFromPinned(uid: string, cityName: string) {
+  const currentCities = await getUserPinnedCities(uid)
+  const updatedCities = currentCities.filter(city => city !== cityName)
+  await saveUserPinnedCities(uid, updatedCities)
+  return updatedCities
+}
+
+// Debug function to check Firebase data structure
+export async function debugUserData(uid: string) {
+  const docRef = doc(db, 'users', uid)
+  const docSnap = await getDoc(docRef)
+  const userData = docSnap.exists() ? docSnap.data() : null
+  console.log('Complete user data from Firebase:', userData)
+  return userData
+}
